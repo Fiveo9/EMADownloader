@@ -1,0 +1,42 @@
+# EMA Downloader Configuration
+
+[sources]
+documents_url = "https://www.ema.europa.eu/en/documents/report/documents-output-json-report_en.json"
+general_url = "https://www.ema.europa.eu/en/documents/report/general-json-report_en.json"
+
+[storage]
+# Root library folder for downloads and indexes
+library_dir = "EMA_Regulatory_Library"
+index_dir = "00_Index"
+raw_json_dir = "90_Raw_JSON"
+failed_downloads_dir = "99_Failed_Downloads"
+database_name = "ema_documents.sqlite3"
+excel_name = "EMA_Document_Index.xlsx"
+csv_name = "EMA_Document_Index.csv"
+
+[network]
+# Identification in User-Agent header
+user_agent = "EMADownloader/0.1.0 (+https://github.com/Fiveo9/EMADownloader)"
+timeout = 30.0
+max_retries = 3
+retry_delay = 1.0
+workers = 3
+# Proxy setting: leave empty to use environment variables (HTTP_PROXY / HTTPS_PROXY / ALL_PROXY)
+proxy = ""
+# Chunk size for streaming file download (1 MB)
+chunk_size = 1048576
+
+[filters]
+# Default document types to synchronize
+default_types = [
+    "scientific-guideline",
+    "regulatory-procedural-guideline"
+]
+# Document status filter (e.g. ["Adopted"], empty list means all)
+default_status = []
+# Languages to download (first version focuses on English)
+default_languages = ["en"]
+
+[classification]
+# Path to classification rules CSV
+rules_file = "config/classification_rules.csv"

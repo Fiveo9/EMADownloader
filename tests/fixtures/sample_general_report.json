@@ -1,0 +1,34 @@
+{
+  "meta": {
+    "total_records": 2,
+    "timestamp": "2026-09-02T06:00:54Z"
+  },
+  "data": [
+    {
+      "id": "5001",
+      "name": "General guidance on fees payable to the European Medicines Agency",
+      "type": "general-guidance",
+      "medicine_name": "",
+      "ema_product_number": "",
+      "status": "Current",
+      "consultation_date": "",
+      "first_published_date": "2023-01-01T00:00:00Z",
+      "last_updated_date": "2024-04-01T00:00:00Z",
+      "reference_number": "EMA/FEES/2024",
+      "document_url": "https://www.ema.europa.eu/en/documents/other/fees-payable-ema_en.pdf"
+    },
+    {
+      "id": "5002",
+      "name": "Pre-authorisation guidance overview",
+      "type": "regulatory-overview",
+      "medicine_name": "",
+      "ema_product_number": "",
+      "status": "Current",
+      "consultation_date": "",
+      "first_published_date": "2022-05-10T00:00:00Z",
+      "last_updated_date": "2024-01-15T00:00:00Z",
+      "reference_number": "",
+      "document_url": "https://www.ema.europa.eu/en/documents/other/pre-authorisation-guidance_en.pdf"
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "total_records": 5,
+    "timestamp": "2026-09-02T05:45:08Z"
+  },
+  "data": [
+    {
+      "id": "2406",
+      "name": "Investigation of chiral active substances",
+      "type": "scientific-guideline",
+      "medicine_name": "",
+      "ema_product_number": "",
+      "status": "Adopted",
+      "consultation_date": "",
+      "first_published_date": "1993-10-01T01:00:00Z",
+      "last_updated_date": "1993-10-01T01:00:00Z",
+      "reference_number": "3CC29A",
+      "document_url": "https://www.ema.europa.eu/en/documents/scientific-guideline/investigation-chiral-active-substances_en.pdf"
+    },
+    {
+      "id": "1001",
+      "name": "Guideline on quality of oral modified release products",
+      "type": "scientific-guideline",
+      "medicine_name": "",
+      "ema_product_number": "",
+      "status": "Adopted",
+      "consultation_date": "",
+      "first_published_date": "2014-11-20T00:00:00Z",
+      "last_updated_date": "2015-05-15T00:00:00Z",
+      "reference_number": "EMA/CHMP/QWP/29244/2018",
+      "document_url": "https://www.ema.europa.eu/en/documents/scientific-guideline/quality-oral-modified-release-products_en.pdf"
+    },
+    {
+      "id": "1002",
+      "name": "ICH guideline S1B(R1) on testing for carcinogenicity of pharmaceuticals",
+      "type": "scientific-guideline",
+      "medicine_name": "",
+      "ema_product_number": "",
+      "status": "Adopted",
+      "consultation_date": "",
+      "first_published_date": "2022-09-01T00:00:00Z",
+      "last_updated_date": "2022-09-15T00:00:00Z",
+      "reference_number": "EMA/CHMP/ICH/383816/2020",
+      "document_url": "https://www.ema.europa.eu/en/documents/scientific-guideline/ich-s1b-r1-testing-carcinogenicity-pharmaceuticals_en.pdf"
+    },
+    {
+      "id": "2001",
+      "name": "Procedural advice on the submission of variations for centrally authorised medicinal products",
+      "type": "regulatory-procedural-guideline",
+      "medicine_name": "",
+      "ema_product_number": "",
+      "status": "Adopted",
+      "consultation_date": "",
+      "first_published_date": "2020-01-10T00:00:00Z",
+      "last_updated_date": "2024-02-01T00:00:00Z",
+      "reference_number": "EMA/12345/2020",
+      "document_url": "https://www.ema.europa.eu/en/documents/regulatory-procedural-guideline/procedural-advice-submission-variations_en.pdf"
+    },
+    {
+      "id": "3001",
+      "name": "Public statement on safety signal for medicine X",
+      "type": "public-statement",
+      "medicine_name": "Medicine X",
+      "ema_product_number": "EMEA/H/C/000000",
+      "status": "Adopted",
+      "consultation_date": "",
+      "first_published_date": "2025-06-01T00:00:00Z",
+      "last_updated_date": "2025-06-01T00:00:00Z",
+      "reference_number": "EMA/PS/999/2025",
+      "document_url": "https://www.ema.europa.eu/en/documents/public-statement/public-statement-safety-medicine-x_en.pdf"
+    }
+  ]
+}

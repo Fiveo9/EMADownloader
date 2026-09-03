@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ema-downloader"
+version = "0.1.0"
+description = "EMA Regulatory Document Downloader & Organizer - Automated synchronization, indexing, and categorization for EMA regulatory documents and scientific guidelines."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Fiveonine", email = "57358895+Fiveo9@users.noreply.github.com" }
+]
+keywords = [
+    "ema",
+    "regulatory",
+    "guidelines",
+    "pharmaceutical",
+    "document-downloader",
+    "european-medicines-agency"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Utilities"
+]
+dependencies = [
+    "httpx>=0.25.0",
+    "openpyxl>=3.1.0",
+    "pandas>=2.0.0",
+    "tqdm>=4.65.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov",
+]
+
+[project.scripts]
+ema-downloader = "ema_downloader.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ema_downloader*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v"
