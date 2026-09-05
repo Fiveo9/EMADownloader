@@ -24,6 +24,28 @@ logger = logging.getLogger(__name__)
 MIN_VALID_FILE_SIZE = 512
 PDF_MAGIC_BYTES = b"%PDF-"
 
+# Stall detection: a flaky proxy can trickle bytes just fast enough to never
+# trip the per-read timeout. If a transfer window yields almost nothing, the
+# attempt is aborted and retried.
+STALL_WINDOW_SECONDS = 60.0
+STALL_MIN_BYTES = 64 * 1024
+
+
+class DownloadCancelled(RuntimeError):
+    """Raised inside a download when a cancel callback aborts it."""
+
+
+def _cancellable_sleep(seconds: float, cancel_check: Optional[Callable[[], bool]]) -> None:
+    """Sleep in short slices, aborting early when cancel_check fires."""
+    deadline = time.monotonic() + seconds
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        if cancel_check and cancel_check():
+            raise DownloadCancelled("Cancelled while waiting to retry")
+        time.sleep(min(0.2, remaining))
+
 
 class DownloadResult:
     """Result of a single file download attempt."""
@@ -129,8 +151,13 @@ class Downloader:
         doc: EMADocument,
         client: Optional[httpx.Client] = None,
         is_update: bool = False,
+        cancel_check: Optional[Callable[[], bool]] = None,
     ) -> DownloadResult:
-        """Stream download a single document, validate it, and atomically save it."""
+        """Stream download a single document, validate it, and atomically save it.
+
+        cancel_check is polled between chunks and retries; when it returns True,
+        DownloadCancelled is raised so the batch can stop promptly.
+        """
         if not doc.official_url:
             return DownloadResult(
                 doc=doc,
@@ -158,6 +185,8 @@ class Downloader:
 
         try:
             for attempt in range(1, retries + 1):
+                if cancel_check and cancel_check():
+                    raise DownloadCancelled(f"Download of {doc.official_url} cancelled")
                 try:
                     hasher = hashlib.sha256()
                     total_bytes = 0
@@ -183,11 +212,24 @@ class Downloader:
                                 error_message=f"HTTP {http_status}",
                             )
 
+                        last_progress_time = time.monotonic()
+                        last_progress_bytes = 0
                         with open(temp_file, "wb") as f:
-                            for chunk in resp.iter_bytes(chunk_size=self.config.network.chunk_size):
+                            for chunk in resp.iter_raw():
+                                if cancel_check and cancel_check():
+                                    raise DownloadCancelled(f"Download of {doc.official_url} cancelled")
                                 f.write(chunk)
                                 hasher.update(chunk)
                                 total_bytes += len(chunk)
+                                now = time.monotonic()
+                                if now - last_progress_time >= STALL_WINDOW_SECONDS:
+                                    if total_bytes - last_progress_bytes < STALL_MIN_BYTES:
+                                        raise TimeoutError(
+                                            f"Stalled: only {total_bytes - last_progress_bytes} bytes "
+                                            f"in {STALL_WINDOW_SECONDS:.0f}s; aborting slow attempt"
+                                        )
+                                    last_progress_time = now
+                                    last_progress_bytes = total_bytes
 
                     # Validate downloaded content
                     valid, reason = validate_downloaded_file(temp_file, expected_ext=doc.file_extension)
@@ -226,7 +268,7 @@ class Downloader:
                     )
 
                     # Add configurable delay to avoid rate limiting
-                    time.sleep(self.config.network.request_delay)
+                    _cancellable_sleep(self.config.network.request_delay, cancel_check)
 
                     return DownloadResult(
                         doc=doc,
@@ -238,7 +280,9 @@ class Downloader:
                         sha256=digest,
                     )
 
-                except (httpx.RequestError, httpx.HTTPStatusError) as e:
+                except DownloadCancelled:
+                    raise
+                except (httpx.RequestError, httpx.HTTPStatusError, TimeoutError) as e:
                     temp_file.unlink(missing_ok=True)
                     last_error = str(e)
                     if attempt < retries:
@@ -248,7 +292,7 @@ class Downloader:
                             logger.warning(f"Rate limited, waiting {sleep_time:.1f}s before retry {attempt + 1}/{retries}")
                         else:
                             sleep_time = delay * (2 ** (attempt - 1))
-                        time.sleep(sleep_time)
+                        _cancellable_sleep(sleep_time, cancel_check)
                 except Exception as e:
                     temp_file.unlink(missing_ok=True)
                     return DownloadResult(
@@ -282,8 +326,9 @@ class Downloader:
     ) -> List[DownloadResult]:
         """Download multiple documents concurrently using thread pool.
 
-        When cancel_check returns True, downloads that have not started yet are
-        cancelled and the batch stops early; in-flight files finish naturally.
+        When cancel_check returns True, queued downloads are dropped and
+        in-flight downloads abort at the next chunk boundary, so the batch
+        stops within seconds instead of waiting for large files to finish.
         """
         results: List[DownloadResult] = []
         if not planned_items:
@@ -299,6 +344,7 @@ class Downloader:
                         doc,
                         shared_client,
                         action == "updated",
+                        cancel_check,
                     ): doc
                     for doc, action in planned_items
                 }
@@ -310,9 +356,9 @@ class Downloader:
                         break
                     try:
                         res = future.result()
-                        results.append(res)
-                        if progress_callback:
-                            progress_callback(res)
+                    except DownloadCancelled:
+                        logger.info("Download of %s was cancelled.", futures[future].name)
+                        continue
                     except Exception as e:
                         doc = futures[future]
                         res = DownloadResult(
@@ -324,6 +370,10 @@ class Downloader:
                         results.append(res)
                         if progress_callback:
                             progress_callback(res)
+                        continue
+                    results.append(res)
+                    if progress_callback:
+                        progress_callback(res)
 
         return results
 

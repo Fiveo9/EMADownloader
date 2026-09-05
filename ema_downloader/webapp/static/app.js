@@ -555,7 +555,7 @@ function renderCurrentTask(task) {
     cancelBtn.addEventListener("click", async () => {
       try {
         await fetchJSON(`/api/tasks/${task.id}/cancel`, { method: "POST" });
-        showToast("已请求取消，等待当前文件完成…");
+        showToast("已请求取消，正在停止下载…");
       } catch (e) {
         showToast(e.message, true);
       }

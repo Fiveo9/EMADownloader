@@ -261,8 +261,6 @@ documents_url = "https://www.ema.europa.eu/en/documents/report/documents-output-
 library_dir = "EMA_Regulatory_Library"
 
 [network]
-# 识别请求标识
-user_agent = "EMADownloader/0.1.0 (+https://github.com/Fiveo9/EMADownloader)"
 timeout = 45.0
 max_retries = 3
 retry_delay = 2.0

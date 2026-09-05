@@ -21,7 +21,7 @@ from ema_downloader.cli import filter_raw_records, prepare_documents
 from ema_downloader.config import AppConfig, load_config
 from ema_downloader.database import Database
 from ema_downloader.downloader import Downloader
-from ema_downloader.ema_source import EMASource
+from ema_downloader.ema_source import EMASource, FetchCancelled
 from ema_downloader.exporter import Exporter
 from ema_downloader.models import DownloadStatus, SyncSummary
 from ema_downloader.organizer import compute_relative_path, load_classification_rules
@@ -154,7 +154,12 @@ def run_sync(config_path: Optional[str], task: Task, params: Dict[str, Any]) -> 
 
     task.phase = "fetching"
     _check_cancel(task)
-    meta, raw_records, _ = source.fetch_documents_report()
+    try:
+        meta, raw_records, _ = source.fetch_documents_report(
+            cancel_check=task.cancel_event.is_set
+        )
+    except FetchCancelled as exc:
+        raise TaskCancelledError() from exc
     task.stats["feed_total"] = len(raw_records)
 
     types = _as_list(params.get("types")) or config.filters.default_types

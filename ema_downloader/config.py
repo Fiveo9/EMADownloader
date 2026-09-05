@@ -64,7 +64,6 @@ class StorageConfig:
 @dataclass
 class NetworkConfig:
     """Network connection parameters."""
-    user_agent: str = "EMADownloader/0.1.0 (+https://github.com/Fiveo9/EMADownloader)"
     timeout: float = 30.0
     max_retries: int = 3
     retry_delay: float = 1.0
@@ -199,7 +198,6 @@ def load_config(config_path: Optional[Path | str] = None, **overrides: Any) -> A
 
     net_data = data.get("network", {})
     network = NetworkConfig(
-        user_agent=net_data.get("user_agent", NetworkConfig.user_agent),
         timeout=float(overrides.get("timeout") or net_data.get("timeout", NetworkConfig.timeout)),
         max_retries=int(overrides.get("max_retries") or net_data.get("max_retries", NetworkConfig.max_retries)),
         retry_delay=float(net_data.get("retry_delay", NetworkConfig.retry_delay)),

@@ -6,6 +6,12 @@
 
 # \[Unreleased\]
 
+# v0.1.1 - 2026-09-05
+
+- 修复：同步任务在「抓取数据源」阶段假死——EMA 反爬偶发 403 拦截代理出口 IP，且不稳定的代理连接可能以涓流速率传输导致读超时永不触发。现改为：403/429 时自动改用直连重试；每次尝试增加总耗时预算（`timeout × 3`，下限 90 秒），超时按失败重试；抓取阶段支持任务取消（Web 界面「取消任务」在卡住时可立即生效）。
+- 修复：「取消任务」后长期停留在「等待当前文件完成」——进行中的下载现会在下一个数据块边界立即中止（几秒内），未开始的任务直接丢弃；取消的文件不计入失败统计。
+- 修复：下载/抓取对"涓流式"停滞连接的鲁棒性——60 秒窗口内接收不足 64 KB 判定为停滞，中止当前尝试并自动重试。为此请求改用 `Accept-Encoding: identity` 并逐网络读取数据块（`iter_raw`），确保取消与停滞检查在每个读取间隙生效。
+- 变更：User-Agent 改为纯浏览器标识（Chrome），不再附加 `EMADownloader/0.1.0` 标记；移除从未生效的 `network.user_agent` 配置项。
 - 新增：Windows 免安装绿色版支持——PyInstaller 打包 `EMA文件库.exe`（onedir、双击启动并自动打开浏览器），frozen 模式下配置/资料库/分类规则锚定 exe 目录，端口被占用时自动顺延；`build_exe.bat` 一键本地构建，`release.yml` 在推送 `v*` 标签时自动构建并附到 GitHub Release。
 - 新增：`启动Web界面.bat` 一键启动脚本（自动检测 Python 并安装依赖）。
 - 新增：本地 Web 图形界面（`pip install -e ".[ui]"` 后运行 `ema-downloader-ui`），提供总览统计、文档库检索（关键词 / 类型 / 下载状态 + 分页 + 打开本地文件）、任务实时进度与日志、任务取消与历史记录；服务仅绑定 127.0.0.1，可选依赖仅为 Flask。
@@ -24,3 +30,4 @@
 - 新增：CLI 子命令 `sync` / `metadata` / `download` / `organize` / `export` / `verify`，支持 dry-run、limit、status、updated-since、keyword、proxy 等参数。
 - 新增：GitHub Actions CI（ruff + pytest，Python 3.10–3.14）。
 - 新增：SOCKS5 代理支持拆分为可选依赖（`pip install -e ".[socks]"`）。
+

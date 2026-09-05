@@ -298,7 +298,7 @@ def test_sync_dry_run_task_flow(web_client, web_db, monkeypatch, fixtures_dir):
         def __init__(self, config):
             pass
 
-        def fetch_documents_report(self, use_cached=False):
+        def fetch_documents_report(self, use_cached=False, cancel_check=None):
             return {"total_records": len(raw_records)}, raw_records, None
 
     monkeypatch.setattr("ema_downloader.webapp.tasks.EMASource", FakeSource)

@@ -4,5 +4,5 @@ A specialized tool for downloading, organizing, and maintaining European Medicin
 Agency (EMA) regulatory documents, scientific guidelines, and related documentation.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "Fiveonine"

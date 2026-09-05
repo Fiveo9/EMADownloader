@@ -21,8 +21,6 @@ excel_name = "EMA_Document_Index.xlsx"
 csv_name = "EMA_Document_Index.csv"
 
 [network]
-# Identification in User-Agent header
-user_agent = "EMADownloader/0.1.0 (+https://github.com/Fiveo9/EMADownloader)"
 timeout = 45.0
 max_retries = 3
 retry_delay = 2.0

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ema-downloader"
-version = "0.1.0"
+version = "0.1.1"
 description = "EMA Regulatory Document Downloader & Organizer - Automated synchronization, indexing, and categorization for EMA regulatory documents and scientific guidelines."
 readme = "README.md"
 requires-python = ">=3.10"

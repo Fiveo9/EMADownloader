@@ -7,7 +7,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import httpx
 
@@ -16,18 +16,38 @@ from ema_downloader.models import EMARawRecord
 
 logger = logging.getLogger(__name__)
 
+# A stalled proxy connection can trickle bytes just fast enough to never trip
+# the per-read timeout, so each attempt also gets a hard wall-clock budget.
+ATTEMPT_BUDGET_FACTOR = 3.0
+MIN_ATTEMPT_BUDGET = 90.0
 
-def create_httpx_client(config: AppConfig) -> httpx.Client:
-    """Create an httpx.Client configured with timeouts, headers, and proxy."""
+# EMA's anti-bot intermittently blocks proxy exit IPs with 403 (429 when
+# throttled); these statuses trigger a direct-connection fallback attempt.
+BLOCKED_STATUSES = (403, 429)
+
+
+class FetchCancelled(RuntimeError):
+    """Raised when a cancel callback aborts an in-progress feed fetch."""
+
+
+def create_httpx_client(config: AppConfig, proxy: Optional[str] = None) -> httpx.Client:
+    """Create an httpx.Client configured with timeouts, headers, and proxy.
+
+    `proxy` overrides `config.network` resolution; an empty string forces a
+    direct connection (used to bypass blocked proxy exit IPs).
+    """
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 EMADownloader/0.1.0"
+            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
         ),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
+        # Identity keeps iter_raw() bytes identical to the file bytes, so the
+        # streaming loops can react to every network read (cancel / stall).
+        "Accept-Encoding": "identity",
     }
-    proxy = config.network.get_effective_proxy()
+    proxy = config.network.get_effective_proxy() if proxy is None else (proxy or None)
     timeout = httpx.Timeout(config.network.timeout, connect=15.0)
 
     # Note: If socks5 is configured but socksio is missing, handle fallback
@@ -64,8 +84,13 @@ class EMASource:
         url: str,
         feed_name: str,
         use_cached: bool = False,
+        cancel_check: Optional[Callable[[], bool]] = None,
+        attempt_budget: Optional[float] = None,
     ) -> Tuple[Dict[str, Any], List[EMARawRecord], Path]:
         """Fetch an EMA JSON feed, save raw snapshot, and return parsed records.
+
+        `cancel_check` is polled between and during attempts; when it returns
+        True, FetchCancelled is raised so callers can abort a stalled fetch.
 
         Returns:
             (meta_dict, list_of_raw_records, snapshot_path)
@@ -88,32 +113,67 @@ class EMASource:
         self.config.storage.full_raw_json_dir.mkdir(parents=True, exist_ok=True)
         temp_snapshot = snapshot_path.with_suffix(".json.tmp")
 
-        client = create_httpx_client(self.config)
+        if attempt_budget is None:
+            attempt_budget = max(
+                self.config.network.timeout * ATTEMPT_BUDGET_FACTOR, MIN_ATTEMPT_BUDGET
+            )
+        proxy = self.config.network.get_effective_proxy()
+        primary_client = create_httpx_client(self.config)
+        direct_client: Optional[httpx.Client] = None
+        # Once EMA blocks the proxy exit IP (403/429), later attempts go direct.
+        use_direct = False
         retries = self.config.network.max_retries
         delay = self.config.network.retry_delay
 
-        with client:
+        try:
             for attempt in range(1, retries + 1):
+                if cancel_check and cancel_check():
+                    raise FetchCancelled(f"Fetch of {url} cancelled before attempt {attempt}")
+                client = primary_client
+                if use_direct and proxy:
+                    if direct_client is None:
+                        logger.info("Retrying via direct connection (proxy exit IP blocked).")
+                        direct_client = create_httpx_client(self.config, proxy="")
+                    client = direct_client
+                attempt_started = time.monotonic()
                 try:
                     with client.stream("GET", url) as response:
                         response.raise_for_status()
                         with open(temp_snapshot, "wb") as f:
-                            for chunk in response.iter_bytes(chunk_size=self.config.network.chunk_size):
+                            for chunk in response.iter_raw():
                                 f.write(chunk)
+                                if time.monotonic() - attempt_started > attempt_budget:
+                                    raise TimeoutError(
+                                        f"Attempt exceeded its {attempt_budget:.0f}s time budget; "
+                                        "connection is likely stalled."
+                                    )
                     # Atomically replace snapshot
                     temp_snapshot.replace(snapshot_path)
                     break
-                except (httpx.RequestError, httpx.HTTPStatusError) as exc:
+                except (httpx.HTTPError, httpx.StreamError, TimeoutError) as exc:
                     if temp_snapshot.exists():
                         temp_snapshot.unlink(missing_ok=True)
                     logger.warning("Attempt %d/%d failed to fetch %s: %s", attempt, retries, url, exc)
+                    if (
+                        isinstance(exc, httpx.HTTPStatusError)
+                        and exc.response.status_code in BLOCKED_STATUSES
+                        and proxy
+                        and not use_direct
+                    ):
+                        use_direct = True
                     if attempt == retries:
                         # Fallback to local snapshot if exists
                         if snapshot_path.exists():
                             logger.warning("Using existing local snapshot %s as fallback.", snapshot_path)
                             break
                         raise RuntimeError(f"Failed to fetch EMA feed from {url} after {retries} attempts: {exc}") from exc
+                    if cancel_check and cancel_check():
+                        raise FetchCancelled(f"Fetch of {url} cancelled while waiting for retry") from exc
                     time.sleep(delay * (2 ** (attempt - 1)))
+        finally:
+            primary_client.close()
+            if direct_client is not None:
+                direct_client.close()
 
         logger.info("Saved raw JSON snapshot to %s", snapshot_path)
         with open(snapshot_path, "r", encoding="utf-8") as f:
@@ -125,18 +185,32 @@ class EMASource:
         logger.info("Parsed %d records from feed %s (reported total: %s)", len(records), feed_name, meta.get("total_records"))
         return meta, records, snapshot_path
 
-    def fetch_documents_report(self, use_cached: bool = False) -> Tuple[Dict[str, Any], List[EMARawRecord], Path]:
+    def fetch_documents_report(
+        self,
+        use_cached: bool = False,
+        cancel_check: Optional[Callable[[], bool]] = None,
+        attempt_budget: Optional[float] = None,
+    ) -> Tuple[Dict[str, Any], List[EMARawRecord], Path]:
         """Fetch all documents report."""
         return self.fetch_feed(
             url=self.config.sources.documents_url,
             feed_name="documents-output-json-report_en",
             use_cached=use_cached,
+            cancel_check=cancel_check,
+            attempt_budget=attempt_budget,
         )
 
-    def fetch_general_report(self, use_cached: bool = False) -> Tuple[Dict[str, Any], List[EMARawRecord], Path]:
+    def fetch_general_report(
+        self,
+        use_cached: bool = False,
+        cancel_check: Optional[Callable[[], bool]] = None,
+        attempt_budget: Optional[float] = None,
+    ) -> Tuple[Dict[str, Any], List[EMARawRecord], Path]:
         """Fetch guidance and general information report."""
         return self.fetch_feed(
             url=self.config.sources.general_url,
             feed_name="general-json-report_en",
             use_cached=use_cached,
+            cancel_check=cancel_check,
+            attempt_budget=attempt_budget,
         )
