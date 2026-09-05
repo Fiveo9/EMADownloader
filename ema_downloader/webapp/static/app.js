@@ -204,7 +204,41 @@ function renderLastSync(last) {
 
 const docState = { page: 1, pageSize: 50, total: 0 };
 
+/* 最近一次 /api/summary 数据，供设置页与同步对话框共用同一份类型清单 */
+let latestSummary = null;
+
+/* 构建类型选项 [[value, label, count|null]]：
+ * 有数据源类型分布时（最近一次同步的统计）按实际类型生成并标注文档数（降序），
+ * 数据源中不存在的类型不会出现，避免"选了没结果"；否则回退为静态清单。 */
+function buildTypeOptions(summaryData, fallbackExtra = []) {
+  const dist = (summaryData && summaryData.feed_types && summaryData.feed_types.counts) || null;
+  if (dist && Object.keys(dist).length) {
+    const options = Object.entries(dist)
+      .sort((a, b) => b[1] - a[1])
+      .map(([v, n]) => [v, typeLabel(v), n]);
+    const seen = new Set(Object.keys(dist));
+    for (const v of [...TYPE_OPTIONS.map(([x]) => x), ...fallbackExtra]) {
+      if (!seen.has(v)) options.push([v, typeLabel(v), null]);
+    }
+    return options;
+  }
+  const known = new Set(TYPE_OPTIONS.map(([x]) => x));
+  fallbackExtra.forEach((t) => known.add(t));
+  return [...known].map((v) => [v, typeLabel(v), null]);
+}
+
+function renderTypeCheckboxGroup(container, options, checkedSet) {
+  container.innerHTML = options
+    .map(([v, label, n]) => `
+      <label><input type="checkbox" value="${esc(v)}" ${checkedSet.has(v) ? "checked" : ""}>
+        ${esc(label)}${n == null ? "" : ` <small>(${esc(String(n))})</small>`}</label>`)
+    .join("");
+}
+
+const HAS_FEED_COUNTS = (s) => s && s.feed_types && Object.keys(s.feed_types.counts || {}).length > 0;
+
 function populateTypeSelects(summaryData) {
+  latestSummary = summaryData;
   const typeSelect = $("#doc-type");
   const currentType = typeSelect.value;
   const known = new Set(TYPE_OPTIONS.map(([v]) => v));
@@ -215,38 +249,18 @@ function populateTypeSelects(summaryData) {
     [...known].map((v) => `<option value="${esc(v)}">${esc(typeLabel(v))}</option>`).join("");
   typeSelect.value = currentType;
 
-  // 同步对话框中的类型勾选框：
-  // - 有数据源类型分布时（最近一次同步的统计），按数据源实际类型生成并标注
-  //   各类型的文档数（降序）——数据源中不存在的类型不会出现，避免"选了没结果"。
-  // - 无分布数据时回退为已知类型清单。
-  // - 默认勾选设置中的 default_types；对话框打开期间不重建（防定时刷新重置）；
-  //   用户勾选变化实时存入 data-checked（见下方 change 监听），重建时按其恢复。
+  // 同步对话框中的类型勾选框：默认勾选设置中的 default_types（而非全部类型）。
+  // 对话框打开期间不重建，避免总览定时刷新（每 10 秒）静默重置用户勾选；
+  // 用户勾选变化实时存入 data-checked（见下方 change 监听），重建时按其恢复。
   const box = $("#sync-types");
   if (!$("#sync-dialog").open) {
-    const dist = (summaryData.feed_types && summaryData.feed_types.counts) || null;
-    let options; // [value, label, count|null]
-    if (dist && Object.keys(dist).length) {
-      options = Object.entries(dist)
-        .sort((a, b) => b[1] - a[1])
-        .map(([v, n]) => [v, typeLabel(v), n]);
-      // 已知类型若不在本次快照里（如旧统计缺失），保留选项、数量显示为 —
-      const seen = new Set(Object.keys(dist));
-      for (const v of [...TYPE_OPTIONS.map(([x]) => x), ...(summaryData.filter_options?.types || [])]) {
-        if (!seen.has(v)) options.push([v, typeLabel(v), null]);
-      }
-    } else {
-      options = [...known].map((v) => [v, typeLabel(v), null]);
-    }
+    const options = buildTypeOptions(summaryData, summaryData.filter_options?.types || []);
     const defaults = new Set(summaryData.config?.default_types || []);
     const checked = typeof box.dataset.checked === "string"
       ? new Set(box.dataset.checked.split(",").filter(Boolean))
       : defaults;
-    if (dist) box.title = "括号内为该类型在最近一次同步数据源中的文档数";
-    box.innerHTML = options
-      .map(([v, label, n]) => `
-        <label><input type="checkbox" value="${esc(v)}" ${checked.has(v) ? "checked" : ""}>
-          ${esc(label)}${n == null ? "" : ` <small>(${esc(String(n))})</small>`}</label>`)
-      .join("");
+    if (HAS_FEED_COUNTS(summaryData)) box.title = "括号内为该类型在最近一次同步数据源中的文档数";
+    renderTypeCheckboxGroup(box, options, checked);
   }
 }
 
@@ -456,14 +470,12 @@ async function loadSettings() {
   $("#set-request-delay").value = v.network.request_delay;
   $("#set-proxy").value = v.network.proxy;
 
-  const known = new Set(TYPE_OPTIONS.map(([val]) => val));
-  (v.filters.default_types || []).forEach((t) => known.add(t));
+  // 默认文档类型：与同步对话框使用同一份类型清单（数据源实际类型 + 文档数）
+  const setBox = $("#set-types");
   const current = new Set(v.filters.default_types || []);
-  $("#set-types").innerHTML = [...known]
-    .map((val) => `
-      <label><input type="checkbox" value="${esc(val)}" ${current.has(val) ? "checked" : ""}>
-        ${esc(typeLabel(val))}</label>`)
-    .join("");
+  const options = buildTypeOptions(latestSummary, v.filters.default_types || []);
+  if (HAS_FEED_COUNTS(latestSummary)) setBox.title = "括号内为该类型在最近一次同步数据源中的文档数";
+  renderTypeCheckboxGroup(setBox, options, current);
   $("#set-status").value = (v.filters.default_status || []).join(", ");
   $("#set-languages").value = (v.filters.default_languages || []).join(", ");
   $("#set-library-dir").value = v.storage.library_dir;

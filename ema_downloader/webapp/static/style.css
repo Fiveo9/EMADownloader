@@ -287,7 +287,7 @@ dialog .form-row input[type="number"] { width: 100%; }
 .two-field { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .inline-label { display: flex !important; align-items: center; gap: 8px; font-weight: 400 !important; }
 .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px 16px; }
-#sync-types { max-height: 280px; overflow-y: auto; padding-right: 4px; }
+#sync-types, #set-types { max-height: 280px; overflow-y: auto; padding-right: 4px; }
 .checkbox-group label {
   display: flex;
   align-items: center;
