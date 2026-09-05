@@ -1,0 +1,48 @@
+name: Release (Windows exe)
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build-exe:
+    name: Build standalone exe
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and PyInstaller
+        run: pip install -e ".[ui]" pyinstaller
+
+      - name: Build exe
+        run: pyinstaller --noconfirm --clean ema_downloader.spec
+
+      - name: Ship editable config files next to the exe
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "dist/EMA文件库/config" | Out-Null
+          Copy-Item "config/settings.toml" "dist/EMA文件库/config/"
+          Copy-Item "config/classification_rules.csv" "dist/EMA文件库/config/"
+
+      - name: Zip the distribution
+        shell: pwsh
+        run: Compress-Archive -Path "dist/EMA文件库" -DestinationPath "EMA文件库-Windows-x64.zip"
+
+      - name: Create GitHub release and upload asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          if (gh release view ${{ github.ref_name }} > $null 2>&1) {
+            gh release upload ${{ github.ref_name }} "EMA文件库-Windows-x64.zip" --clobber
+          } else {
+            gh release create ${{ github.ref_name }} "EMA文件库-Windows-x64.zip" --title "${{ github.ref_name }}" --generate-notes
+          }

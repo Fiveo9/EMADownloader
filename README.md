@@ -11,6 +11,26 @@
 
 ---
 
+## 🖱️ 一键启动（电脑小白版）
+
+不会装 Python？两条路任选：
+
+**方式一：免安装绿色版（推荐，无需任何环境）**
+
+1. 到 [GitHub Releases](https://github.com/Fiveo9/EMADownloader/releases) 下载 `EMA文件库-Windows-x64.zip`
+2. 解压到任意文件夹（如桌面）
+3. 双击 `EMA文件库.exe` → 浏览器自动打开管理界面
+
+> 黑色控制台窗口是程序本体，使用期间请勿关闭（关掉即退出）；资料库默认生成在 exe 旁边的 `EMA_Regulatory_Library` 文件夹。exe 由官方 CI（Windows x64）自动构建。
+
+**方式二：已装 Python 的用户**
+
+双击仓库根目录的 **`启动Web界面.bat`** 即可：首次运行会自动安装依赖，之后每次双击直达界面。
+
+**自建 exe（可选）**：在本机运行 `build_exe.bat`，产物输出到 `dist\EMA文件库\`。
+
+---
+
 ## 🌟 为什么选择 EMA Downloader？
 
 在制药与生命科学领域，跟踪并整理欧洲药品管理局（EMA）的海量法规（70,000+ 份文件）传统上依赖人工下载或易失效的浏览器模拟爬虫。**EMA Downloader** 提供了一套可靠、工程级合规的解决方案：

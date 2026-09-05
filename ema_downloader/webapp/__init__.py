@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import socket
 import subprocess
 import sys
 import threading
@@ -38,6 +39,31 @@ from ema_downloader.webapp.tasks import TaskConflictError, TaskManager
 logger = logging.getLogger("ema_downloader.webapp")
 
 
+def _resource_dir() -> Path:
+    """Package directory, or the PyInstaller bundle dir in frozen builds."""
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    return Path(__file__).parent
+
+
+def _freeze_bootstrap() -> None:
+    """Anchor relative paths (library, config, rules CSV) to the exe folder."""
+    if getattr(sys, "frozen", False):
+        os.chdir(Path(sys.executable).parent)
+
+
+def _find_free_port(host: str, start: int, attempts: int = 20) -> int:
+    """First bindable port at or after `start`; returns `start` if none found."""
+    for port in range(start, start + attempts):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.bind((host, port))
+                return port
+        except OSError:
+            continue
+    return start
+
+
 def _mask_proxy(proxy: str) -> str:
     """Hide credentials in a proxy URL before sending it to the browser."""
     if not proxy:
@@ -63,7 +89,12 @@ def _open_path(path: Path) -> None:
 
 def create_app(config_path: Optional[Path | str] = None) -> Flask:
     """Build the Flask application. config_path is forwarded to load_config."""
-    app = Flask(__name__)
+    resources = _resource_dir()
+    app = Flask(
+        __name__,
+        template_folder=str(resources / "templates"),
+        static_folder=str(resources / "static"),
+    )
     app.json.ensure_ascii = False  # render Chinese text unescaped in JSON responses
     manager = TaskManager(config_path=str(config_path) if config_path else None)
     app.extensions["task_manager"] = manager
@@ -247,9 +278,12 @@ def run(
     config_path: Optional[Path | str] = None,
 ) -> None:
     """Start the local web UI server (blocking)."""
+    _freeze_bootstrap()
+    port = _find_free_port(host, port)
     app = create_app(config_path=config_path)
     url = f"http://{host}:{port}"
-    print(f"\n  EMA 监管文件库 Web UI 已启动: {url}\n  (Ctrl+C 停止)\n")
+    print(f"\n  EMA 监管文件库 Web UI 已启动: {url}")
+    print("  使用时请不要关闭本窗口（关闭即退出程序）。\n")
     if open_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     app.run(host=host, port=port, debug=False)

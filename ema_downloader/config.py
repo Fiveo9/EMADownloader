@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, List, Optional
@@ -146,6 +147,9 @@ def find_default_config_path() -> Optional[Path]:
         Path.cwd() / "settings.toml",
         Path(__file__).resolve().parent.parent / "config" / "settings.toml",
     ]
+    if getattr(sys, "frozen", False):
+        # Standalone exe build: prefer the config shipped next to the executable.
+        candidates.insert(0, Path(sys.executable).parent / "config" / "settings.toml")
     for c in candidates:
         if c.exists():
             return c
