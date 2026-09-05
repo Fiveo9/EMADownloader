@@ -215,15 +215,21 @@ function populateTypeSelects(summaryData) {
     [...known].map((v) => `<option value="${esc(v)}">${esc(typeLabel(v))}</option>`).join("");
   typeSelect.value = currentType;
 
-  // 同步对话框中的类型勾选框：默认勾选设置中的 default_types（而非全部类型）
-  const defaults = new Set(summaryData.config?.default_types || []);
+  // 同步对话框中的类型勾选框：默认勾选设置中的 default_types（而非全部类型）。
+  // 对话框打开期间不重建，避免总览定时刷新（每 10 秒）静默重置用户勾选；
+  // 用户勾选变化实时存入 data-checked（见下方 change 监听），重建时按其恢复。
   const box = $("#sync-types");
-  const checked = box.dataset.checked ? new Set(box.dataset.checked.split(",")) : defaults;
-  box.innerHTML = [...known]
-    .map((v) => `
-      <label><input type="checkbox" value="${esc(v)}" ${checked.has(v) ? "checked" : ""}>
-        ${esc(typeLabel(v))}</label>`)
-    .join("");
+  if (!$("#sync-dialog").open) {
+    const defaults = new Set(summaryData.config?.default_types || []);
+    const checked = typeof box.dataset.checked === "string"
+      ? new Set(box.dataset.checked.split(",").filter(Boolean))
+      : defaults;
+    box.innerHTML = [...known]
+      .map((v) => `
+        <label><input type="checkbox" value="${esc(v)}" ${checked.has(v) ? "checked" : ""}>
+          ${esc(typeLabel(v))}</label>`)
+      .join("");
+  }
 }
 
 async function loadDocs() {
@@ -328,6 +334,13 @@ $("#btn-verify").addEventListener("click", () => startTask("verify", {}));
 $("#btn-open-library").addEventListener("click", () => openLibraryPath(""));
 
 /* ---------- 同步对话框 ---------- */
+
+/* 用户改动类型勾选时实时记录到 data-checked，定时刷新重建选项后可恢复。
+ * 全部取消勾选记录为空串，提交时不带 types 参数 = 使用设置中的默认类型。 */
+$("#sync-types").addEventListener("change", () => {
+  const box = $("#sync-types");
+  box.dataset.checked = [...box.querySelectorAll("input:checked")].map((el) => el.value).join(",");
+});
 
 $("#sync-cancel").addEventListener("click", () => $("#sync-dialog").close());
 
