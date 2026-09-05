@@ -44,9 +44,11 @@ jobs:
           Copy-Item "config/settings.toml" "dist/EMA文件库/config/"
           Copy-Item "config/classification_rules.csv" "dist/EMA文件库/config/"
 
+      # GitHub 净化 Release 附件名时会丢弃非 ASCII 字符（"EMA文件库" 会变成
+      # "EMA."），所以外层 zip 用 ASCII 项目名；包内 exe 保持中文产品名。
       - name: Zip the distribution
         shell: pwsh
-        run: Compress-Archive -Path "dist/EMA文件库" -DestinationPath "EMA文件库-Windows-x64.zip"
+        run: Compress-Archive -Path "dist/EMA文件库" -DestinationPath "EMADownloader-Windows-x64.zip"
 
       - name: Create GitHub release and upload asset
         env:
@@ -54,7 +56,7 @@ jobs:
         shell: pwsh
         run: |
           if (gh release view ${{ env.RELEASE_TAG }} > $null 2>&1) {
-            gh release upload ${{ env.RELEASE_TAG }} "EMA文件库-Windows-x64.zip" --clobber
+            gh release upload ${{ env.RELEASE_TAG }} "EMADownloader-Windows-x64.zip" --clobber
           } else {
-            gh release create ${{ env.RELEASE_TAG }} "EMA文件库-Windows-x64.zip" --title "${{ env.RELEASE_TAG }}" --generate-notes
+            gh release create ${{ env.RELEASE_TAG }} "EMADownloader-Windows-x64.zip" --title "${{ env.RELEASE_TAG }}" --generate-notes
           }

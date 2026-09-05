@@ -17,7 +17,7 @@
 
 **方式一：免安装绿色版（推荐，无需任何环境）**
 
-1. 到 [GitHub Releases](https://github.com/Fiveo9/EMADownloader/releases) 下载 `EMA文件库-Windows-x64.zip`
+1. 到 [GitHub Releases](https://github.com/Fiveo9/EMADownloader/releases) 下载 `EMADownloader-Windows-x64.zip`
 2. 解压到任意文件夹（如桌面）
 3. 双击 `EMA文件库.exe` → 浏览器自动打开管理界面
 
