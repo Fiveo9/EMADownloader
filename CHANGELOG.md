@@ -6,6 +6,7 @@
 
 # \[Unreleased\]
 
+- 修复：同步对话框打开时类型勾选框误勾选全部类型（与注释意图相反的 `concat` 笔误），现按设置中的默认文档类型勾选。
 - 修复：同步对话框/设置的文档类型清单与 EMA 数据源实际标识对齐——`q-and-a`、`legislation`、`eu-legislation`、`reflection-paper`、`position-paper`、`concept-paper` 等旧标识在数据源中已不存在（问答文档现标识为 `medicine-qa`，反思/概念文件归入 `scientific-guideline`），按这些类型筛选会得到 0 条结果，导致"全选"与"按默认设置"的同步结果完全相同。默认选项改为数据源中真实存在的类型。
 
 # v0.1.1 - 2026-09-05

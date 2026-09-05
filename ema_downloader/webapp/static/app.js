@@ -215,8 +215,8 @@ function populateTypeSelects(summaryData) {
     [...known].map((v) => `<option value="${esc(v)}">${esc(typeLabel(v))}</option>`).join("");
   typeSelect.value = currentType;
 
-  // 同步对话框中的类型勾选框（默认勾选配置中的 default_types）
-  const defaults = new Set((summaryData.config?.default_types || []).concat([...known]));
+  // 同步对话框中的类型勾选框：默认勾选设置中的 default_types（而非全部类型）
+  const defaults = new Set(summaryData.config?.default_types || []);
   const box = $("#sync-types");
   const checked = box.dataset.checked ? new Set(box.dataset.checked.split(",")) : defaults;
   box.innerHTML = [...known]
