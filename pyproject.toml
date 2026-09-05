@@ -46,6 +46,8 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-cov",
+    # Web UI 是核心功能,测试覆盖它,因此 flask 属于开发必装依赖。
+    "flask>=3.0.0",
 ]
 # SOCKS5 proxy support: pip install -e ".[socks]"
 socks = [

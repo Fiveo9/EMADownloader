@@ -9,6 +9,10 @@ from urllib.parse import quote
 
 import pytest
 
+# webapp 包在缺少 Flask 时会在导入期抛出带提示的 ImportError,
+# 这里先跳过,避免环境未装 flask 时整个测试收集直接报错。
+pytest.importorskip("flask")
+
 from ema_downloader.config import load_config
 from ema_downloader.database import Database
 from ema_downloader.downloader import DownloadResult, Downloader
