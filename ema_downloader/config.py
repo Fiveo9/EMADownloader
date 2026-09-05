@@ -7,7 +7,11 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, List, Optional
-import tomllib
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # Python 3.10: tomllib 是 tomli 的内置版，接口一致
+    import tomli as tomllib
 
 
 @dataclass

@@ -17,10 +17,14 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-import tomllib
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # Python 3.10: tomllib 是 tomli 的内置版，接口一致
+    import tomli as tomllib
 
 from ema_downloader.config import find_default_config_path, load_config
 
