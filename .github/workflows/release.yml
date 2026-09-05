@@ -3,6 +3,16 @@ name: Release (Windows exe)
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要构建并发布的已有标签（如 v0.1.1），将检出该标签代码后构建"
+        required: true
+        default: "v0.1.1"
+
+# Tag pushes use github.ref_name; manual runs use the tag input.
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 permissions:
   contents: write
@@ -13,6 +23,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - uses: actions/setup-python@v5
         with:
@@ -41,8 +53,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          if (gh release view ${{ github.ref_name }} > $null 2>&1) {
-            gh release upload ${{ github.ref_name }} "EMA文件库-Windows-x64.zip" --clobber
+          if (gh release view ${{ env.RELEASE_TAG }} > $null 2>&1) {
+            gh release upload ${{ env.RELEASE_TAG }} "EMA文件库-Windows-x64.zip" --clobber
           } else {
-            gh release create ${{ github.ref_name }} "EMA文件库-Windows-x64.zip" --title "${{ github.ref_name }}" --generate-notes
+            gh release create ${{ env.RELEASE_TAG }} "EMA文件库-Windows-x64.zip" --title "${{ env.RELEASE_TAG }}" --generate-notes
           }

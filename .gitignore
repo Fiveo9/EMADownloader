@@ -29,6 +29,8 @@ MANIFEST
 # PyInstaller
 *.manifest
 *.spec
+# ...except the project's build recipe, needed by build_exe.bat and CI
+!ema_downloader.spec
 
 # Unit test / coverage
 htmlcov/
