@@ -6,7 +6,7 @@
 
 # \[Unreleased\]
 
-- 修复：问答文档归档目录——`medicine-qa`（EMA 当前用于问答文档的类型标识）此前未映射，会落入 `06_Other_Documents`；现与公开声明同归 `04_QA_Public_Statements`，旧标识 `q-and-a` 的映射保留以兼容既有资料库。README 资料库目录结构章节同步更新（补充 `06_Other_Documents`、`type_distribution.json`，标注旧标识预留目录）。
+- 修复：问答文档归档与一级目录编号——`medicine-qa`（EMA 当前的问答类型标识）此前未映射、会落入其他目录；现与公开声明同归 `03_QA_Public_Statements`。同时移除数据源已不存在的旧类型标识（q-and-a / legislation / reflection-paper 等）的目录映射，并将一级目录编号紧凑化（`03_QA_Public_Statements`、`04_Other_Documents`）。README 资料库目录结构与架构图同步更新。
 - 新增：同步对话框的类型选项按数据源实际类型生成——每次同步后统计各类型文档数（`90_Raw_JSON/type_distribution.json`，经 `/api/summary` 提供），选项按数量降序展示并标注数量，数据源中不存在的类型不再出现，"选了没结果"一眼可见。
 - 修复：总览定时刷新（每 10 秒）会静默重置同步对话框中正在编辑的类型勾选——对话框打开期间不再重建选项，用户勾选实时保存、重建后恢复；类型字段增加「留空使用默认」提示。
 - 修复：同步对话框打开时类型勾选框误勾选全部类型（与注释意图相反的 `concat` 笔误），现按设置中的默认文档类型勾选。

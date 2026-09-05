@@ -68,8 +68,8 @@ flowchart TD
     
     I --> J1[01_Scientific_Guidelines<br/>质量CMC / 非临床 / 临床 / 生物制品 / ICH等]
     I --> J2[02_Regulatory_Procedural_Guidelines]
-    I --> J3[03_Reflection_Position_Papers]
-    I --> J4[其它分类目录]
+    I --> J3[03_QA_Public_Statements]
+    I --> J4[04_Other_Documents<br/>其余文档类型默认归档]
     
     J1 & J2 & J3 & J4 --> K[结构化索引生成器 Exporter]
     K --> L1[专业多工作表 Excel 索引<br/>内置本地打开超链接 =HYPERLINK]
@@ -100,10 +100,8 @@ EMA_Regulatory_Library/
 │   ├── 07_Herbal_Medicines/                    # 第二级：传统草药制品
 │   └── 99_Uncategorized/                       # 未命中的科学指南归档
 ├── 02_Regulatory_Procedural_Guidelines/        # 第一级：监管与审评程序性指导原则
-├── 03_Reflection_Position_Concept_Papers/      # 预留：旧类型标识目录（reflection-paper 等已从数据源移除，新库不会生成）
-├── 04_QA_Public_Statements/                    # 第一级：问答（medicine-qa）与公开声明
-├── 05_EU_Legislation_Optional/                 # 预留：旧类型标识目录（legislation 等已从数据源移除，新库不会生成）
-├── 06_Other_Documents/                         # 第一级：其余文档类型的默认归档（评估报告、PSUSA、会议文件等）
+├── 03_QA_Public_Statements/                    # 第一级：问答（medicine-qa）与公开声明
+├── 04_Other_Documents/                         # 第一级：其余文档类型的默认归档（评估报告、PSUSA、会议文件等）
 ├── 90_Raw_JSON/                                # 官方原始数据每日快照备份
 │   ├── documents-output-json-report_en_YYYYMMDD.json
 │   ├── general-json-report_en_YYYYMMDD.json    # 指南与综合信息数据源（CLI --include-general 时抓取）
@@ -113,9 +111,6 @@ EMA_Regulatory_Library/
     └── download_manifest.csv                   # 本地全量文件的 SHA-256 指纹清单
 ```
 
-> 说明：EMA 数据源已不再产生反思/立场/概念文件与法规类类型标识（反思/概念文件
-> 现归入科学指南，问答文档现标识为 medicine-qa），因此 **03、05 仅为编号占位**——
-> 保留原目录名是为了让已有资料库的文件路径保持稳定，新资料库不会生成这两个目录。
 
 ---
 

@@ -74,7 +74,7 @@ def test_classify_medicine_qa():
         local_filename="20260101__qa.pdf",
     )
     top, sub, cat = classify_document(doc)
-    assert top == "04_QA_Public_Statements"
+    assert top == "03_QA_Public_Statements"
     assert sub == ""
 
 
