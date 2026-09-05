@@ -28,6 +28,11 @@ except ImportError as exc:  # pragma: no cover - friendly guidance instead of a 
 from ema_downloader import __version__
 from ema_downloader.config import load_config
 from ema_downloader.database import Database
+from ema_downloader.webapp.settings import (
+    SettingsValidationError,
+    read_settings,
+    write_settings,
+)
 from ema_downloader.webapp.tasks import TaskConflictError, TaskManager
 
 logger = logging.getLogger("ema_downloader.webapp")
@@ -154,6 +159,23 @@ def create_app(config_path: Optional[Path | str] = None) -> Flask:
                 },
             }
         )
+
+    @app.get("/api/settings")
+    def api_get_settings() -> Any:
+        return jsonify(read_settings(config_path))
+
+    @app.put("/api/settings")
+    def api_update_settings() -> Any:
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "请求体必须是对象"}), 400
+        try:
+            applied = write_settings(config_path, data)
+        except SettingsValidationError as exc:
+            return jsonify({"error": str(exc), "details": exc.errors}), 400
+        except OSError as exc:
+            return jsonify({"error": f"写入配置文件失败: {exc}"}), 500
+        return jsonify({"applied": applied, "settings": read_settings(config_path)})
 
     @app.post("/api/tasks")
     def api_create_task() -> Any:

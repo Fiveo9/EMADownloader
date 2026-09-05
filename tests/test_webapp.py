@@ -373,3 +373,134 @@ def test_verify_and_export_tasks(web_client, web_db, web_config_path):
     payload = _wait_for_task(web_client, resp.get_json()["id"])
     assert payload["state"] == "success", payload.get("error")
     assert Path(payload["result"]["excel"]).exists()
+
+
+# ---------------------------------------------------------------------------
+# Settings management
+# ---------------------------------------------------------------------------
+
+
+def test_settings_roundtrip_preserves_unknown_keys(web_config_path):
+    from ema_downloader.webapp.settings import write_settings
+
+    local = web_config_path.with_name("settings.local.toml")
+    local.write_text(
+        "# my header\n"
+        "[network]\n"
+        "proxy = 'http://user:secret@old:1'\n"
+        "\n"
+        "[network.extra]\n"
+        "flag = true\n",
+        encoding="utf-8",
+    )
+    base_before = web_config_path.read_text(encoding="utf-8")
+
+    applied = write_settings(
+        web_config_path,
+        {
+            "network": {"workers": 8, "proxy": "http://new:2"},
+            "filters": {"default_types": ["scientific-guideline"]},
+            "storage": {"library_dir": "C:/some lib"},
+        },
+    )
+
+    assert applied["network"]["workers"] == 8
+    text = local.read_text(encoding="utf-8")
+    assert "# my header" in text  # leading comments preserved
+    assert "http://new:2" in text  # proxy replaced
+    assert "user:secret@old:1" not in text
+    assert "[network.extra]" in text  # unknown sub-table preserved
+    assert "flag = true" in text
+
+    cfg = load_config(config_path=web_config_path)
+    assert cfg.network.workers == 8
+    assert cfg.network.proxy == "http://new:2"
+    assert cfg.filters.default_types == ["scientific-guideline"]
+    assert str(cfg.storage.library_dir) == str(Path("C:/some lib"))
+    # The committed base template is never touched.
+    assert web_config_path.read_text(encoding="utf-8") == base_before
+
+
+def test_settings_validation_rejects_invalid(web_config_path):
+    from ema_downloader.webapp.settings import SettingsValidationError, write_settings
+
+    local = web_config_path.with_name("settings.local.toml")
+    with pytest.raises(SettingsValidationError) as excinfo:
+        write_settings(
+            web_config_path,
+            {
+                "network": {"workers": 99, "timeout": "abc", "nope": 1},
+                "bogus_section": {"x": 1},
+            },
+        )
+    errors = excinfo.value.errors
+    by_field = {(e["section"], e["field"]): e["message"] for e in errors}
+    assert ("network", "workers") in by_field
+    assert ("network", "timeout") in by_field
+    assert ("network", "nope") in by_field
+    assert ("bogus_section", "-") in by_field
+    assert not local.exists()  # nothing written when validation fails
+
+
+def test_settings_mask_placeholder_skips_proxy(web_config_path):
+    from ema_downloader.webapp.settings import PROXY_MASK, write_settings
+
+    local = web_config_path.with_name("settings.local.toml")
+    applied = write_settings(web_config_path, {"network": {"proxy": PROXY_MASK, "workers": 4}})
+    assert "proxy" not in applied.get("network", {})
+    assert applied["network"]["workers"] == 4
+    assert "proxy" not in local.read_text(encoding="utf-8")
+
+
+def test_api_settings_get_masks_proxy(web_client, web_config_path):
+    local = web_config_path.with_name("settings.local.toml")
+    local.write_text("[network]\nproxy = 'http://user:secret@host:1'\n", encoding="utf-8")
+
+    data = web_client.get("/api/settings").get_json()
+    assert data["values"]["network"]["proxy"] == "********"
+    assert "secret" not in json.dumps(data)
+    assert "proxy" in data["overridden"]["network"]
+    assert data["local_path"].endswith("settings.local.toml")
+
+
+def test_api_settings_put_flow(web_client, web_config_path):
+    local = web_config_path.with_name("settings.local.toml")
+
+    # 1. Valid update takes effect immediately.
+    resp = web_client.put(
+        "/api/settings",
+        json={
+            "network": {"workers": 6, "proxy": "http://user:secret@host:9"},
+            "filters": {"default_status": ["Adopted"]},
+        },
+    )
+    assert resp.status_code == 200
+    cfg = load_config(config_path=web_config_path)
+    assert cfg.network.workers == 6
+    assert cfg.filters.default_status == ["Adopted"]
+
+    # 2. GET masks the stored credential.
+    data = web_client.get("/api/settings").get_json()
+    assert data["values"]["network"]["proxy"] == "********"
+    assert "secret" not in json.dumps(data)
+
+    # 3. Resubmitting the mask keeps the stored proxy untouched.
+    resp = web_client.put(
+        "/api/settings", json={"network": {"proxy": "********", "request_delay": 1.5}}
+    )
+    assert resp.status_code == 200
+    text = local.read_text(encoding="utf-8")
+    assert "user:secret@host:9" in text
+    assert "request_delay = 1.5" in text
+
+    # 4. Empty proxy clears it in the file.
+    resp = web_client.put("/api/settings", json={"network": {"proxy": ""}})
+    assert resp.status_code == 200
+    assert "proxy = ''" in local.read_text(encoding="utf-8")
+
+    # 5. Invalid values -> 400 with per-field details, file untouched.
+    before = local.read_text(encoding="utf-8")
+    resp = web_client.put("/api/settings", json={"network": {"workers": 0}})
+    assert resp.status_code == 400
+    assert any(d["field"] == "workers" for d in resp.get_json()["details"])
+    assert local.read_text(encoding="utf-8") == before

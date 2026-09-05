@@ -68,6 +68,7 @@ async function fetchJSON(url, options) {
     const message = data && data.error ? data.error : `请求失败 (${res.status})`;
     const err = new Error(message);
     err.status = res.status;
+    err.details = data && data.details;
     throw err;
   }
   return data;
@@ -135,6 +136,7 @@ function switchTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.id === `tab-${name}`));
   if (name === "library") loadDocs();
   if (name === "tasks") tick();
+  if (name === "settings") loadSettings();
 }
 
 /* ---------- 总览 ---------- */
@@ -349,6 +351,164 @@ $("#sync-form").addEventListener("submit", async (event) => {
   $("#sync-dialog").close();
   await startTask("sync", params,
     dryRun ? "开始 Dry-run 预览（不下载文件）？" : "开始同步？首次全量同步耗时较长。");
+});
+
+/* ---------- 设置页 ---------- */
+
+const PROXY_MASK = "********";
+let settingsOverridden = {};
+let settingsSnapshot = null;
+
+const SETTINGS_FIELD_IDS = {
+  "network.workers": "#set-workers",
+  "network.timeout": "#set-timeout",
+  "network.max_retries": "#set-max-retries",
+  "network.retry_delay": "#set-retry-delay",
+  "network.request_delay": "#set-request-delay",
+  "network.proxy": "#set-proxy",
+  "filters.default_types": "#set-types-label",
+  "filters.default_status": "#set-status",
+  "filters.default_languages": "#set-languages",
+  "storage.library_dir": "#set-library-dir",
+  "classification.rules_file": "#set-rules-file",
+};
+
+function splitList(text) {
+  return String(text || "").split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+function isOverridden(key) {
+  const [section, field] = key.split(".");
+  return (settingsOverridden[section] || []).includes(field);
+}
+
+function markOverridden() {
+  Object.entries(SETTINGS_FIELD_IDS).forEach(([key, sel]) => {
+    const anchor = $(sel);
+    if (!anchor) return;
+    const label = anchor.tagName === "LABEL"
+      ? anchor
+      : (document.querySelector(`label[for="${anchor.id}"]`) || anchor);
+    let badge = label.querySelector(".override-badge");
+    if (isOverridden(key)) {
+      if (!badge) {
+        badge = document.createElement("span");
+        badge.className = "badge info override-badge";
+        badge.textContent = "已覆盖";
+        badge.title = "该值来自 settings.local.toml 个人覆盖文件";
+        label.appendChild(badge);
+      }
+    } else if (badge) {
+      badge.remove();
+    }
+  });
+}
+
+async function loadSettings() {
+  let data;
+  try {
+    data = await fetchJSON("/api/settings");
+  } catch (e) {
+    $("#settings-msg").textContent = `加载失败：${e.message}`;
+    return;
+  }
+  settingsOverridden = data.overridden || {};
+  settingsSnapshot = data.values;
+  const v = data.values;
+  $("#set-workers").value = v.network.workers;
+  $("#set-timeout").value = v.network.timeout;
+  $("#set-max-retries").value = v.network.max_retries;
+  $("#set-retry-delay").value = v.network.retry_delay;
+  $("#set-request-delay").value = v.network.request_delay;
+  $("#set-proxy").value = v.network.proxy;
+
+  const known = new Set(TYPE_OPTIONS.map(([val]) => val));
+  (v.filters.default_types || []).forEach((t) => known.add(t));
+  const current = new Set(v.filters.default_types || []);
+  $("#set-types").innerHTML = [...known]
+    .map((val) => `
+      <label><input type="checkbox" value="${esc(val)}" ${current.has(val) ? "checked" : ""}>
+        ${esc(typeLabel(val))}</label>`)
+    .join("");
+  $("#set-status").value = (v.filters.default_status || []).join(", ");
+  $("#set-languages").value = (v.filters.default_languages || []).join(", ");
+  $("#set-library-dir").value = v.storage.library_dir;
+  $("#set-rules-file").value = v.classification.rules_file;
+
+  markOverridden();
+  $("#settings-local-note").textContent = `覆盖文件：${data.local_path}`;
+  $("#settings-msg").textContent = "";
+}
+
+$("#btn-save-settings").addEventListener("click", async () => {
+  const updates = {};
+  const network = {};
+  const numericFields = [
+    ["#set-workers", "workers"],
+    ["#set-timeout", "timeout"],
+    ["#set-max-retries", "max_retries"],
+    ["#set-retry-delay", "retry_delay"],
+    ["#set-request-delay", "request_delay"],
+  ];
+  numericFields.forEach(([sel, name]) => {
+    const raw = $(sel).value.trim();
+    if (raw === "") return; // 留空不提交
+    const n = Number(raw);
+    network[name] = Number.isNaN(n) ? raw : n; // 非法值交给后端校验并提示
+  });
+  const proxy = $("#set-proxy").value;
+  if (proxy !== PROXY_MASK) {
+    network.proxy = proxy.trim(); // 空串 = 清除代理；新值 = 覆盖
+  }
+  if (Object.keys(network).length) updates.network = network;
+
+  updates.filters = {
+    default_types: [...document.querySelectorAll("#set-types input:checked")].map((el) => el.value),
+    default_status: splitList($("#set-status").value),
+    default_languages: splitList($("#set-languages").value),
+  };
+
+  const libDir = $("#set-library-dir").value.trim();
+  if (libDir) updates.storage = { library_dir: libDir };
+  const rulesFile = $("#set-rules-file").value.trim();
+  if (rulesFile) updates.classification = { rules_file: rulesFile };
+
+  // 只提交真正改动的字段，保持覆盖文件最小化
+  const changed = {};
+  Object.entries(updates).forEach(([section, fields]) => {
+    const kept = {};
+    Object.entries(fields).forEach(([field, value]) => {
+      const oldValue = settingsSnapshot && settingsSnapshot[section] && settingsSnapshot[section][field];
+      if (JSON.stringify(oldValue) !== JSON.stringify(value)) kept[field] = value;
+    });
+    if (Object.keys(kept).length) changed[section] = kept;
+  });
+
+  if (!Object.keys(changed).length) {
+    showToast("没有需要保存的改动");
+    return;
+  }
+
+  const btn = $("#btn-save-settings");
+  btn.disabled = true;
+  try {
+    await fetchJSON("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(changed),
+    });
+    showToast("设置已保存并立即生效");
+    await loadSettings();
+    refreshSummary();
+  } catch (e) {
+    let message = e.message;
+    if (Array.isArray(e.details) && e.details.length) {
+      message += "：" + e.details.map((d) => `${d.section}.${d.field} ${d.message}`).join("；");
+    }
+    showToast(message, true);
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 /* ---------- 任务轮询 ---------- */
