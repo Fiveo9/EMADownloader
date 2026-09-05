@@ -329,6 +329,14 @@ def test_sync_dry_run_task_flow(web_client, web_db, monkeypatch, fixtures_dir):
     summary_data = web_client.get("/api/summary").get_json()
     assert summary_data["last_sync"]["downloaded_success"] == 0
 
+    # The feed's type distribution was persisted and is exposed for the dialog.
+    dist = summary_data["feed_types"]
+    assert dist.get("counts"), dist
+    assert dist["counts"][raw_records[0].type] == sum(
+        1 for r in raw_records if r.type == raw_records[0].type
+    )
+    assert dist.get("updated_at")
+
 
 def test_verify_and_export_tasks(web_client, web_db, web_config_path):
     # One healthy file + one file missing from disk -> exactly one issue.

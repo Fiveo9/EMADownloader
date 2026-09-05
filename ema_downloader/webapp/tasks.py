@@ -8,11 +8,12 @@ serializes for the frontend to poll.
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
 import uuid
-from collections import OrderedDict, deque
+from collections import Counter, OrderedDict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
@@ -139,6 +140,22 @@ def _make_config(params: Dict[str, Any], config_path: Optional[str]) -> AppConfi
     return load_config(config_path=config_path, **overrides)
 
 
+def _save_type_distribution(config: AppConfig, raw_records: List[Any]) -> None:
+    """Persist per-type record counts of the last fetched feed for the sync dialog.
+
+    The dialog renders its type options from this file, so the list always
+    matches what the data source actually offers (stale slugs would select
+    nothing) and each option can show how many records it would match.
+    """
+    counts = Counter(r.type for r in raw_records if r.type)
+    path = config.storage.full_raw_json_dir / "type_distribution.json"
+    payload = {"updated_at": _now_iso(), "counts": dict(counts)}
+    try:
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+    except OSError as exc:  # non-fatal: dialog just falls back to the static list
+        logger.warning("Failed to write type distribution to %s: %s", path, exc)
+
+
 def run_sync(config_path: Optional[str], task: Task, params: Dict[str, Any]) -> Dict[str, Any]:
     """Full pipeline: fetch feed -> filter -> index -> plan -> download -> report -> export."""
     start_time = time.time()
@@ -161,6 +178,7 @@ def run_sync(config_path: Optional[str], task: Task, params: Dict[str, Any]) -> 
     except FetchCancelled as exc:
         raise TaskCancelledError() from exc
     task.stats["feed_total"] = len(raw_records)
+    _save_type_distribution(config, raw_records)
 
     types = _as_list(params.get("types")) or config.filters.default_types
     statuses = _as_list(params.get("status")) or config.filters.default_status

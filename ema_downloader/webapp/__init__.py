@@ -8,6 +8,7 @@ JSON API the single-page frontend polls.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import socket
@@ -116,6 +117,16 @@ def create_app(config_path: Optional[Path | str] = None) -> Flask:
         last_sync = db.get_last_sync()
         if last_sync:
             last_sync = {k: v for k, v in last_sync.items() if k != "summary"}
+
+        # Per-type counts of the last fetched feed, for the sync dialog.
+        feed_types: dict = {}
+        try:
+            dist_path = config.storage.full_raw_json_dir / "type_distribution.json"
+            if dist_path.exists():
+                feed_types = json.loads(dist_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            feed_types = {}
+
         return jsonify(
             {
                 "version": __version__,
@@ -123,6 +134,7 @@ def create_app(config_path: Optional[Path | str] = None) -> Flask:
                 "counts": counts,
                 "filter_options": options,
                 "last_sync": last_sync,
+                "feed_types": feed_types,
                 "config": {
                     "default_types": config.filters.default_types,
                     "default_status": config.filters.default_status,

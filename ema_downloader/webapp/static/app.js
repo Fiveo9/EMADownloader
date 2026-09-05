@@ -215,19 +215,37 @@ function populateTypeSelects(summaryData) {
     [...known].map((v) => `<option value="${esc(v)}">${esc(typeLabel(v))}</option>`).join("");
   typeSelect.value = currentType;
 
-  // 同步对话框中的类型勾选框：默认勾选设置中的 default_types（而非全部类型）。
-  // 对话框打开期间不重建，避免总览定时刷新（每 10 秒）静默重置用户勾选；
-  // 用户勾选变化实时存入 data-checked（见下方 change 监听），重建时按其恢复。
+  // 同步对话框中的类型勾选框：
+  // - 有数据源类型分布时（最近一次同步的统计），按数据源实际类型生成并标注
+  //   各类型的文档数（降序）——数据源中不存在的类型不会出现，避免"选了没结果"。
+  // - 无分布数据时回退为已知类型清单。
+  // - 默认勾选设置中的 default_types；对话框打开期间不重建（防定时刷新重置）；
+  //   用户勾选变化实时存入 data-checked（见下方 change 监听），重建时按其恢复。
   const box = $("#sync-types");
   if (!$("#sync-dialog").open) {
+    const dist = (summaryData.feed_types && summaryData.feed_types.counts) || null;
+    let options; // [value, label, count|null]
+    if (dist && Object.keys(dist).length) {
+      options = Object.entries(dist)
+        .sort((a, b) => b[1] - a[1])
+        .map(([v, n]) => [v, typeLabel(v), n]);
+      // 已知类型若不在本次快照里（如旧统计缺失），保留选项、数量显示为 —
+      const seen = new Set(Object.keys(dist));
+      for (const v of [...TYPE_OPTIONS.map(([x]) => x), ...(summaryData.filter_options?.types || [])]) {
+        if (!seen.has(v)) options.push([v, typeLabel(v), null]);
+      }
+    } else {
+      options = [...known].map((v) => [v, typeLabel(v), null]);
+    }
     const defaults = new Set(summaryData.config?.default_types || []);
     const checked = typeof box.dataset.checked === "string"
       ? new Set(box.dataset.checked.split(",").filter(Boolean))
       : defaults;
-    box.innerHTML = [...known]
-      .map((v) => `
+    if (dist) box.title = "括号内为该类型在最近一次同步数据源中的文档数";
+    box.innerHTML = options
+      .map(([v, label, n]) => `
         <label><input type="checkbox" value="${esc(v)}" ${checked.has(v) ? "checked" : ""}>
-          ${esc(typeLabel(v))}</label>`)
+          ${esc(label)}${n == null ? "" : ` <small>(${esc(String(n))})</small>`}</label>`)
       .join("");
   }
 }
