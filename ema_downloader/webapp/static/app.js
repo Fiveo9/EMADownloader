@@ -5,16 +5,19 @@ const $ = (sel) => document.querySelector(sel);
 
 /* ---------- 常量与文案 ---------- */
 
+/* 类型清单与实际数据源对齐（EMA documents JSON 报告的真实 type 标识）。
+ * 注意：q-and-a / legislation / reflection-paper 等旧标识在数据源中已不存在
+ * （问答文档为 medicine-qa，反思/概念文件归入 scientific-guideline）。 */
 const TYPE_OPTIONS = [
   ["scientific-guideline", "科学指南"],
   ["regulatory-procedural-guideline", "监管程序指南"],
-  ["reflection-paper", "反思文件"],
-  ["position-paper", "立场文件"],
-  ["concept-paper", "概念文件"],
-  ["q-and-a", "问答文件"],
+  ["medicine-qa", "问答文件"],
   ["public-statement", "公开声明"],
-  ["legislation", "立法文件"],
-  ["eu-legislation", "EU 立法"],
+  ["assessment-report", "评估报告"],
+  ["referral", "转介程序"],
+  ["scientific-conclusion", "科学结论"],
+  ["press-release", "新闻稿"],
+  ["rmp", "风险管理计划"],
 ];
 
 const DL_STATUSES = {
