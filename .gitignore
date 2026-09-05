@@ -68,3 +68,6 @@ EMA_Regulatory_Library/
 *.tmp
 *.log
 config/settings.local.toml
+
+# ZCode session artifacts
+.zcode/

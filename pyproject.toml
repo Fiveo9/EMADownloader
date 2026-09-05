@@ -51,13 +51,21 @@ dev = [
 socks = [
     "httpx[socks]>=0.25.0",
 ]
+# Local web UI: pip install -e ".[ui]"
+ui = [
+    "flask>=3.0.0",
+]
 
 [project.scripts]
 ema-downloader = "ema_downloader.cli:main"
+ema-downloader-ui = "ema_downloader.webapp:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["ema_downloader*"]
+
+[tool.setuptools.package-data]
+"ema_downloader.webapp" = ["templates/*.html", "static/*.css", "static/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

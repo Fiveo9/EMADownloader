@@ -1,0 +1,310 @@
+/* EMA 监管文件库 - 本地 Web UI 样式 */
+:root {
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --border: #e2e5ea;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --green: #16a34a;
+  --red: #dc2626;
+  --amber: #d97706;
+  --gray-badge: #6b7280;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.brand { display: flex; align-items: baseline; gap: 8px; }
+.brand h1 { font-size: 18px; margin: 0; }
+.version { color: var(--muted); font-size: 12px; }
+
+.tabs { display: flex; gap: 4px; }
+.tab-btn {
+  border: none;
+  background: transparent;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--muted);
+}
+.tab-btn:hover { background: #eef1f5; color: var(--text); }
+.tab-btn.active { background: #e8effd; color: var(--primary); font-weight: 600; }
+
+.global-indicator {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+  font-size: 13px;
+  background: #e8effd;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.spinner {
+  width: 12px; height: 12px;
+  border: 2px solid var(--primary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+main { max-width: 1200px; margin: 0 auto; padding: 20px 24px 60px; }
+.tab { display: none; }
+.tab.active { display: block; }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.card .label { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.card .value { font-size: 24px; font-weight: 700; }
+.card .value.warn { color: var(--red); }
+.card .value.ok { color: var(--green); }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+.panel h2 { font-size: 15px; margin: 0 0 12px; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.btn:hover:not(:disabled) { background: #f0f2f5; }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn.primary:hover:not(:disabled) { background: var(--primary-dark); }
+.btn.ghost { border-style: dashed; }
+.btn.danger { color: var(--red); border-color: #f3c1c1; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.small { padding: 3px 10px; font-size: 12px; }
+
+.hint { color: var(--muted); font-size: 12px; margin: 12px 0 0; }
+.muted { color: var(--muted); }
+.center { text-align: center; padding: 24px 0; }
+
+.config-info div { margin-bottom: 6px; }
+.config-info code {
+  background: #f0f2f5;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* 工具栏与表格 */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.toolbar input[type="search"] {
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+.toolbar input, .toolbar select, .form-row input, .form-row select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--panel);
+  color: var(--text);
+}
+.toolbar input:focus, .toolbar select:focus { outline: 2px solid #bfd3fb; }
+
+.table-wrap {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+.doc-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.doc-table th, .doc-table td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.doc-table th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+  background: #fafbfc;
+  white-space: nowrap;
+}
+.doc-table tbody tr:hover { background: #f7f9fc; }
+.doc-table .num { text-align: right; }
+.doc-title { max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.badge.ok { background: #dcfce7; color: var(--green); }
+.badge.err { background: #fee2e2; color: var(--red); }
+.badge.info { background: #dbeafe; color: var(--primary); }
+.badge.gray { background: #eceef1; color: var(--gray-badge); }
+.badge.warn { background: #fef3c7; color: var(--amber); }
+
+.row-actions { display: flex; gap: 6px; }
+.icon-btn {
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 3px 8px;
+  font-size: 12px;
+  text-decoration: none;
+  color: var(--text);
+}
+.icon-btn:hover { background: #f0f2f5; }
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+/* 任务页 */
+.progress-wrap { margin: 10px 0; }
+.progress-bar {
+  height: 10px;
+  background: #e8eaf0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress-bar .fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+.progress-bar.indeterminate .fill {
+  width: 35% !important;
+  animation: slide 1.2s ease-in-out infinite alternate;
+}
+@keyframes slide { from { margin-left: 0; } to { margin-left: 65%; } }
+
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 6px;
+  gap: 12px;
+}
+.progress-meta .current { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.log-box {
+  background: #10151c;
+  color: #c9d4e3;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 12px;
+  height: 260px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-top: 12px;
+}
+
+/* 对话框 */
+dialog {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  width: 460px;
+  max-width: 92vw;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+}
+dialog::backdrop { background: rgba(15, 23, 42, 0.4); }
+dialog h2 { margin: 0 0 16px; font-size: 16px; }
+dialog .form-row { margin-bottom: 14px; }
+dialog .form-row label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; }
+dialog .form-row label small { color: var(--muted); font-weight: 400; }
+dialog .form-row input[type="text"],
+dialog .form-row input[type="date"],
+dialog .form-row input[type="number"] { width: 100%; }
+.two-field { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.inline-label { display: flex !important; align-items: center; gap: 8px; font-weight: 400 !important; }
+.checkbox-group { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400 !important;
+  margin: 0 !important;
+}
+.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+/* 轻提示 */
+.toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.toast.error { background: var(--red); }
+.toast.hidden { display: none; }
+.hidden { display: none !important; }

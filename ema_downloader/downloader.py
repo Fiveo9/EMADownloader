@@ -278,8 +278,13 @@ class Downloader:
         self,
         planned_items: List[Tuple[EMADocument, str]],
         progress_callback: Optional[Callable[[DownloadResult], None]] = None,
+        cancel_check: Optional[Callable[[], bool]] = None,
     ) -> List[DownloadResult]:
-        """Download multiple documents concurrently using thread pool."""
+        """Download multiple documents concurrently using thread pool.
+
+        When cancel_check returns True, downloads that have not started yet are
+        cancelled and the batch stops early; in-flight files finish naturally.
+        """
         results: List[DownloadResult] = []
         if not planned_items:
             return results
@@ -299,6 +304,10 @@ class Downloader:
                 }
 
                 for future in as_completed(futures):
+                    if cancel_check and cancel_check():
+                        for pending in futures:
+                            pending.cancel()
+                        break
                     try:
                         res = future.result()
                         results.append(res)
@@ -318,12 +327,26 @@ class Downloader:
 
         return results
 
-    def verify_library(self) -> List[dict]:
-        """Verify integrity of all documents recorded in the database."""
+    def verify_library(
+        self,
+        progress_callback: Optional[Callable[[EMADocument, int, int], None]] = None,
+        cancel_check: Optional[Callable[[], bool]] = None,
+    ) -> List[dict]:
+        """Verify integrity of all documents recorded in the database.
+
+        progress_callback(doc, index, total) is invoked once per scanned document.
+        When cancel_check returns True, verification stops early.
+        """
         docs = self.db.get_documents()
         issues = []
+        total = len(docs)
 
-        for doc in docs:
+        for index, doc in enumerate(docs, start=1):
+            if progress_callback:
+                progress_callback(doc, index, total)
+            if cancel_check and cancel_check():
+                break
+
             # Check docs marked as downloaded or having a local file specified
             if doc.local_path:
                 local_file = self.library_dir / doc.local_path

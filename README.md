@@ -114,6 +114,9 @@ pip install -e ".[dev]"
 
 # 如需通过 SOCKS5 代理下载
 pip install -e ".[socks]"
+
+# 如需使用本地 Web 图形界面
+pip install -e ".[ui]"
 ```
 
 ---
@@ -171,6 +174,40 @@ ema-downloader sync --types scientific-guideline regulatory-procedural-guideline
 | `ema-downloader organize` | 重新扫描本地库并按最新规则归档分类 | 修改了分类规则 CSV 时快速重组目录 |
 | `ema-downloader export` | 重新生成多工作表 Excel、CSV 索引 | 库文件变更后单独刷新索引 |
 | `ema-downloader verify` | 全盘扫描已下载 PDF 的文件头、大小及 SHA-256 | 本地资料库完整性定期审计 |
+
+---
+
+## 🖥️ 本地 Web 界面
+
+不喜欢敲命令行？安装 UI 扩展后，一条命令即可在浏览器中管理整个资料库：
+
+```bash
+pip install -e ".[ui]"
+ema-downloader-ui            # 启动后自动打开浏览器（默认 http://127.0.0.1:5000）
+```
+
+也可以通过模块方式运行，或自定义端口 / 配置：
+
+```bash
+python -m ema_downloader.webapp --port 8000
+ema-downloader-ui --config path/to/settings.toml --no-browser
+```
+
+> 安全说明：服务仅绑定本机回环地址 `127.0.0.1`，局域网内其他设备无法访问。
+
+### 界面功能
+
+| 标签页 | 功能 |
+| :--- | :--- |
+| **总览** | 文档总数 / 各类型 / 下载状态统计卡片，上次同步结果摘要，一键启动同步、整理、导出、校验任务 |
+| **文档库** | 按关键词、类型、下载状态检索全部文档，分页浏览，一键打开本地 PDF / 所在文件夹 / EMA 官网链接 |
+| **任务** | 实时进度条（阶段 + 已完成数 + 当前文件）、后台日志滚动输出、任务取消、历史任务记录 |
+
+「开始同步」支持在对话框中按次覆盖参数：文档类型、官方状态、关键词、更新起始日期、限制数量、并发数、代理，并可勾选 **Dry-run 预览模式**。
+
+### 与命令行的关系
+
+Web 界面与 CLI 完全共享同一套核心引擎与本地资料库（SQLite 索引、分类规则、导出文件），两种方式可混用：界面启动的同步任务同样写入 `sync_history` 并生成 `sync_report_*.json` 审计报告。为保证数据一致性，同一时刻只允许运行一个长任务，运行中再次提交会被拒绝。
 
 ---
 

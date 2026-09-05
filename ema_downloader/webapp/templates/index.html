@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMA 监管文件库</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <h1>EMA 监管文件库</h1>
+    <span class="version">v{{ version }}</span>
+  </div>
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="dashboard">总览</button>
+    <button class="tab-btn" data-tab="library">文档库</button>
+    <button class="tab-btn" data-tab="tasks">任务</button>
+  </nav>
+  <div id="global-task-indicator" class="global-indicator hidden">
+    <span class="spinner"></span><span id="global-task-text"></span>
+  </div>
+</header>
+
+<main>
+  <!-- ============ 总览 ============ -->
+  <section id="tab-dashboard" class="tab active">
+    <div id="summary-cards" class="cards"></div>
+
+    <div class="panel">
+      <h2>操作</h2>
+      <div class="actions">
+        <button id="btn-sync" class="btn primary">▶ 开始同步</button>
+        <button id="btn-organize" class="btn">🗂 重新整理</button>
+        <button id="btn-export" class="btn">📤 导出索引</button>
+        <button id="btn-verify" class="btn">🔍 完整性校验</button>
+        <button id="btn-open-library" class="btn ghost">📁 打开资料库</button>
+      </div>
+      <p class="hint">同步会抓取 EMA 官方 JSON 数据源，增量下载新文件并更新本地索引；首次全量同步耗时较长。</p>
+    </div>
+
+    <div class="two-col">
+      <div class="panel">
+        <h2>上次同步</h2>
+        <div id="last-sync" class="muted">暂无同步记录</div>
+      </div>
+      <div class="panel">
+        <h2>当前配置</h2>
+        <div id="config-info" class="config-info muted">加载中…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 文档库 ============ -->
+  <section id="tab-library" class="tab">
+    <div class="toolbar">
+      <input id="doc-keyword" type="search" placeholder="搜索标题 / 编号 / 药品名">
+      <select id="doc-type"><option value="">全部类型</option></select>
+      <select id="doc-dl-status"><option value="">全部下载状态</option></select>
+      <button id="btn-doc-search" class="btn primary">查询</button>
+      <span id="doc-total" class="muted"></span>
+    </div>
+    <div class="table-wrap">
+      <table class="doc-table">
+        <thead>
+          <tr>
+            <th>标题</th><th>类型</th><th>分类</th><th>更新日期</th>
+            <th class="num">大小</th><th>下载状态</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="doc-tbody">
+          <tr><td colspan="7" class="muted center">加载中…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <button id="page-prev" class="btn">← 上一页</button>
+      <span id="page-info" class="muted"></span>
+      <button id="page-next" class="btn">下一页 →</button>
+    </div>
+  </section>
+
+  <!-- ============ 任务 ============ -->
+  <section id="tab-tasks" class="tab">
+    <div class="panel">
+      <h2>当前任务</h2>
+      <div id="current-task" class="muted">当前没有运行中的任务</div>
+    </div>
+    <div class="panel">
+      <h2>历史任务</h2>
+      <div class="table-wrap">
+        <table class="doc-table">
+          <thead>
+            <tr><th>开始时间</th><th>类型</th><th>状态</th><th>结果摘要</th><th>耗时</th><th>操作</th></tr>
+          </thead>
+          <tbody id="task-history-tbody">
+            <tr><td colspan="6" class="muted center">暂无任务记录</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ 同步参数对话框 ============ -->
+<dialog id="sync-dialog">
+  <form id="sync-form">
+    <h2>同步参数</h2>
+    <div class="form-row">
+      <label>文档类型</label>
+      <div id="sync-types" class="checkbox-group"></div>
+    </div>
+    <div class="form-row">
+      <label for="sync-status">官方状态 <small>(逗号分隔，留空使用默认)</small></label>
+      <input id="sync-status" type="text" placeholder="Adopted, Draft">
+    </div>
+    <div class="form-row two-field">
+      <div>
+        <label for="sync-keyword">关键词</label>
+        <input id="sync-keyword" type="text" placeholder="标题 / 编号 / 药品名">
+      </div>
+      <div>
+        <label for="sync-updated-since">更新起始日期</label>
+        <input id="sync-updated-since" type="date">
+      </div>
+    </div>
+    <div class="form-row two-field">
+      <div>
+        <label for="sync-limit">限制数量 <small>(调试用)</small></label>
+        <input id="sync-limit" type="number" min="1" placeholder="不限">
+      </div>
+      <div>
+        <label for="sync-workers">并发下载数</label>
+        <input id="sync-workers" type="number" min="1" max="16" placeholder="默认">
+      </div>
+    </div>
+    <div class="form-row">
+      <label for="sync-proxy">代理 <small>(留空使用配置/自动探测)</small></label>
+      <input id="sync-proxy" type="text" placeholder="http://127.0.0.1:7890">
+    </div>
+    <div class="form-row">
+      <label class="inline-label"><input id="sync-dry-run" type="checkbox"> 仅预览（Dry-run，不下载文件）</label>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" id="sync-cancel" class="btn">取消</button>
+      <button type="submit" id="sync-submit" class="btn primary">开始同步</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

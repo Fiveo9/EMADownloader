@@ -6,7 +6,7 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from ema_downloader.models import DownloadStatus, EMADocument, SyncSummary
 
@@ -20,7 +20,8 @@ class Database:
         self.init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(str(self.db_path))
+        # Generous busy timeout: the web UI reads while background tasks write.
+        conn = sqlite3.connect(str(self.db_path), timeout=30.0)
         conn.row_factory = sqlite3.Row
         return conn
 
@@ -193,16 +194,15 @@ class Database:
             )
             conn.commit()
 
-    def get_documents(
+    def _build_filter_conditions(
         self,
         types: Optional[List[str]] = None,
         statuses: Optional[List[str]] = None,
         download_statuses: Optional[List[str]] = None,
         keyword: Optional[str] = None,
         updated_since: Optional[str] = None,
-        limit: Optional[int] = None,
-    ) -> List[EMADocument]:
-        """Query documents with filtering options."""
+    ) -> Tuple[List[str], List[Any]]:
+        """Build shared WHERE fragments for document queries."""
         conditions = []
         params: List[Any] = []
 
@@ -232,8 +232,31 @@ class Database:
             conditions.append("last_updated_at >= ?")
             params.append(updated_since)
 
+        return conditions, params
+
+    def get_documents(
+        self,
+        types: Optional[List[str]] = None,
+        statuses: Optional[List[str]] = None,
+        download_statuses: Optional[List[str]] = None,
+        keyword: Optional[str] = None,
+        updated_since: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+    ) -> List[EMADocument]:
+        """Query documents with filtering and pagination options."""
+        conditions, params = self._build_filter_conditions(
+            types, statuses, download_statuses, keyword, updated_since
+        )
+
         where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-        limit_clause = f"LIMIT {int(limit)}" if limit else ""
+        if limit:
+            limit_clause = f"LIMIT {int(limit)} OFFSET {int(offset)}"
+        elif offset:
+            # SQLite requires a LIMIT clause when OFFSET is used; -1 means unlimited.
+            limit_clause = f"LIMIT -1 OFFSET {int(offset)}"
+        else:
+            limit_clause = ""
 
         query = f"SELECT * FROM ema_documents {where_clause} ORDER BY last_updated_at DESC {limit_clause}"
 
@@ -242,6 +265,56 @@ class Database:
             cursor.execute(query, params)
             rows = cursor.fetchall()
             return [EMADocument.from_row(dict(r)) for r in rows]
+
+    def count_documents(
+        self,
+        types: Optional[List[str]] = None,
+        statuses: Optional[List[str]] = None,
+        download_statuses: Optional[List[str]] = None,
+        keyword: Optional[str] = None,
+        updated_since: Optional[str] = None,
+    ) -> int:
+        """Count documents matching the same filters as get_documents."""
+        conditions, params = self._build_filter_conditions(
+            types, statuses, download_statuses, keyword, updated_since
+        )
+        where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT COUNT(*) FROM ema_documents {where_clause}", params)
+            return cursor.fetchone()[0]
+
+    def get_filter_options(self) -> Dict[str, List[str]]:
+        """Return distinct document types and official statuses for UI dropdowns."""
+        options: Dict[str, List[str]] = {"types": [], "statuses": []}
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT DISTINCT document_type FROM ema_documents WHERE document_type != '' ORDER BY document_type"
+            )
+            options["types"] = [row[0] for row in cursor.fetchall()]
+            cursor.execute(
+                "SELECT DISTINCT status FROM ema_documents WHERE status != '' ORDER BY status"
+            )
+            options["statuses"] = [row[0] for row in cursor.fetchall()]
+        return options
+
+    def get_last_sync(self) -> Optional[Dict[str, Any]]:
+        """Return the most recent sync_history row as a dict, or None."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM sync_history ORDER BY id DESC LIMIT 1")
+            row = cursor.fetchone()
+            if not row:
+                return None
+            data = dict(row)
+            try:
+                data["summary"] = json.loads(data.get("summary_json") or "{}")
+            except json.JSONDecodeError:
+                data["summary"] = {}
+            data.pop("summary_json", None)
+            return data
 
     def get_summary_counts(self) -> Dict[str, int]:
         """Return counts by document type and download status."""

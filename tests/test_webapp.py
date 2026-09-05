@@ -1,0 +1,375 @@
+"""Tests for the local web UI: task manager, runners, and Flask API."""
+
+import hashlib
+import json
+import threading
+import time
+from pathlib import Path
+from urllib.parse import quote
+
+import pytest
+
+from ema_downloader.config import load_config
+from ema_downloader.database import Database
+from ema_downloader.downloader import DownloadResult, Downloader
+from ema_downloader.models import DownloadStatus, EMADocument, EMARawRecord
+from ema_downloader.webapp import create_app
+from ema_downloader.webapp.tasks import TaskConflictError, TaskManager, _check_cancel
+
+
+def make_doc(ema_id: str, name: str = "Doc", **kwargs) -> EMADocument:
+    defaults = dict(
+        ema_id=str(ema_id),
+        name=name,
+        document_type="scientific-guideline",
+        status="Adopted",
+        last_updated_at="2026-01-01",
+    )
+    defaults.update(kwargs)
+    return EMADocument(**defaults)
+
+
+@pytest.fixture
+def web_config_path(tmp_path: Path) -> Path:
+    cfg = tmp_path / "settings.toml"
+    cfg.write_text(f"[storage]\nlibrary_dir = '{(tmp_path / 'lib').as_posix()}'\n", encoding="utf-8")
+    return cfg
+
+
+@pytest.fixture
+def web_app(web_config_path: Path):
+    app = create_app(config_path=web_config_path)
+    app.config["TESTING"] = True
+    return app
+
+
+@pytest.fixture
+def web_client(web_app):
+    return web_app.test_client()
+
+
+@pytest.fixture
+def web_db(web_config_path: Path) -> Database:
+    config = load_config(config_path=web_config_path)
+    config.ensure_directories()
+    return Database(config.storage.database_path)
+
+
+# ---------------------------------------------------------------------------
+# download_batch cancellation
+# ---------------------------------------------------------------------------
+
+
+def test_download_batch_cancel_check(sample_config, sample_db, monkeypatch):
+    calls = {"n": 0}
+
+    def fake_single(self, doc, client=None, is_update=False):
+        time.sleep(0.2)
+        return DownloadResult(doc=doc, success=True, status=DownloadStatus.DOWNLOADED, file_size=1)
+
+    monkeypatch.setattr(Downloader, "download_single_document", fake_single)
+
+    downloader = Downloader(sample_config, sample_db)
+    items = [
+        (
+            EMADocument(
+                ema_id=str(i),
+                name=f"doc {i}",
+                document_type="scientific-guideline",
+                official_url=f"https://example.com/{i}.pdf",
+            ),
+            "new",
+        )
+        for i in range(10)
+    ]
+
+    def on_progress(_res):
+        calls["n"] += 1
+
+    results = downloader.download_batch(
+        items, progress_callback=on_progress, cancel_check=lambda: calls["n"] >= 1
+    )
+
+    assert 1 <= len(results) < 10
+    assert calls["n"] == len(results)
+
+
+def test_download_batch_without_cancel_check_unchanged(sample_config, sample_db, monkeypatch):
+    """Without cancel_check the batch completes all items (CLI behaviour)."""
+
+    def fake_single(self, doc, client=None, is_update=False):
+        return DownloadResult(doc=doc, success=True, status=DownloadStatus.DOWNLOADED, file_size=1)
+
+    monkeypatch.setattr(Downloader, "download_single_document", fake_single)
+
+    downloader = Downloader(sample_config, sample_db)
+    items = [
+        (EMADocument(ema_id=str(i), name=f"d{i}", document_type="t", official_url="https://x/{i}"), "new")
+        for i in range(5)
+    ]
+    results = downloader.download_batch(items)
+    assert len(results) == 5
+
+
+# ---------------------------------------------------------------------------
+# TaskManager
+# ---------------------------------------------------------------------------
+
+
+def test_task_manager_rejects_concurrent_tasks():
+    started = threading.Event()
+    release = threading.Event()
+
+    def runner(config_path, task, params):
+        started.set()
+        release.wait(timeout=5)
+        return {}
+
+    mgr = TaskManager(runners={"slow": runner})
+    task = mgr.submit("slow", {})
+    assert started.wait(timeout=5)
+
+    with pytest.raises(TaskConflictError):
+        mgr.submit("slow", {})
+
+    release.set()
+    deadline = time.time() + 5
+    while mgr.get(task.id).state != "success" and time.time() < deadline:
+        time.sleep(0.05)
+    assert mgr.get(task.id).state == "success"
+
+    # Slot is free again: a new submission is accepted and finishes immediately.
+    second = mgr.submit("slow", {})
+    deadline = time.time() + 5
+    while mgr.get(second.id).state != "success" and time.time() < deadline:
+        time.sleep(0.05)
+    assert mgr.get(second.id).state == "success"
+
+
+def test_task_manager_cancel_marks_task_cancelled():
+    started = threading.Event()
+    release = threading.Event()
+
+    def runner(config_path, task, params):
+        started.set()
+        release.wait(timeout=5)
+        _check_cancel(task)
+        return {}
+
+    mgr = TaskManager(runners={"slow": runner})
+    task = mgr.submit("slow", {})
+    assert started.wait(timeout=5)
+    assert mgr.cancel(task.id) is True
+    release.set()
+
+    deadline = time.time() + 5
+    while mgr.get(task.id).state != "cancelled" and time.time() < deadline:
+        time.sleep(0.05)
+    assert mgr.get(task.id).state == "cancelled"
+    assert mgr.cancel(task.id) is False  # already finished
+
+
+def test_task_manager_unknown_type_rejected():
+    mgr = TaskManager()
+    with pytest.raises(ValueError):
+        mgr.submit("bogus", {})
+
+
+# ---------------------------------------------------------------------------
+# Flask API
+# ---------------------------------------------------------------------------
+
+
+def test_index_page(web_client):
+    resp = web_client.get("/")
+    assert resp.status_code == 200
+    assert "EMA 监管文件库".encode("utf-8") in resp.data
+
+
+def test_api_summary(web_client, web_db):
+    web_db.batch_upsert_documents(
+        [
+            make_doc("1", "Alpha guideline"),
+            make_doc("2", "Beta guideline", download_status="downloaded"),
+            make_doc("3", "Gamma procedural", document_type="regulatory-procedural-guideline"),
+        ]
+    )
+    data = web_client.get("/api/summary").get_json()
+    assert data["counts"]["total"] == 3
+    assert data["counts"]["status_downloaded"] == 1
+    assert data["filter_options"]["types"] == [
+        "regulatory-procedural-guideline",
+        "scientific-guideline",
+    ]
+    assert data["last_sync"] is None
+    assert data["config"]["default_types"]
+
+
+def test_api_documents_pagination_and_filters(web_client, web_db):
+    docs = []
+    for i in range(5):
+        docs.append(
+            make_doc(
+                str(i),
+                f"Guideline number {i}",
+                last_updated_at=f"2026-0{i + 1}-01",
+                download_status="downloaded" if i % 2 else "new",
+            )
+        )
+    docs[0].name = "Special chiral document"
+    web_db.batch_upsert_documents(docs)
+
+    # Pagination
+    page1 = web_client.get("/api/documents?page=1&page_size=2").get_json()
+    assert page1["total"] == 5
+    assert len(page1["documents"]) == 2
+    page3 = web_client.get("/api/documents?page=3&page_size=2").get_json()
+    assert len(page3["documents"]) == 1
+
+    # Keyword filter
+    kw = web_client.get("/api/documents?keyword=chiral").get_json()
+    assert kw["total"] == 1
+    assert kw["documents"][0]["name"] == "Special chiral document"
+
+    # Download-status filter
+    dl = web_client.get("/api/documents?download_statuses=downloaded").get_json()
+    assert dl["total"] == 2
+
+
+def test_api_open_path_guard(web_client, web_config_path, monkeypatch):
+    opened = []
+    monkeypatch.setattr("ema_downloader.webapp._open_path", lambda p: opened.append(Path(p)))
+
+    config = load_config(config_path=web_config_path)
+    config.ensure_directories()
+    root = config.storage.library_dir.resolve()
+
+    # Absolute path outside the library -> rejected
+    outside = web_config_path  # lives in tmp_path, outside the library dir
+    resp = web_client.get(f"/api/open?path={quote(str(outside))}")
+    assert resp.status_code == 400
+
+    # Relative path resolving outside the library -> rejected
+    resp = web_client.get("/api/open?path=../outside.pdf")
+    assert resp.status_code == 400
+
+    # Inside the library but missing -> 404
+    resp = web_client.get("/api/open?path=missing/file.pdf")
+    assert resp.status_code == 404
+
+    # Inside the library and existing -> opened via OS handler
+    target_dir = root / "01_Scientific_Guidelines"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / "a.pdf"
+    target.write_bytes(b"%PDF-1.4" + b"x" * 600)
+    resp = web_client.get(f"/api/open?path={quote('01_Scientific_Guidelines/a.pdf')}")
+    assert resp.status_code == 200
+    assert len(opened) == 1
+
+
+def test_api_task_unknown_type(web_client):
+    resp = web_client.post("/api/tasks", json={"type": "bogus"})
+    assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Sync task end-to-end (dry-run, mocked EMA source)
+# ---------------------------------------------------------------------------
+
+
+def _wait_for_task(web_client, task_id, timeout=20):
+    deadline = time.time() + timeout
+    payload = {}
+    while time.time() < deadline:
+        payload = web_client.get(f"/api/tasks/{task_id}").get_json()
+        if payload["state"] in ("success", "failed", "cancelled"):
+            return payload
+        time.sleep(0.1)
+    raise AssertionError(f"task did not finish in time: {payload}")
+
+
+def test_sync_dry_run_task_flow(web_client, web_db, monkeypatch, fixtures_dir):
+    raw_payload = json.loads(
+        (fixtures_dir / "sample_documents_report.json").read_text(encoding="utf-8")
+    )
+    raw_records = [EMARawRecord.from_dict(item) for item in raw_payload["data"]]
+
+    class FakeSource:
+        def __init__(self, config):
+            pass
+
+        def fetch_documents_report(self, use_cached=False):
+            return {"total_records": len(raw_records)}, raw_records, None
+
+    monkeypatch.setattr("ema_downloader.webapp.tasks.EMASource", FakeSource)
+
+    resp = web_client.post("/api/tasks", json={"type": "sync", "params": {"dry_run": True}})
+    assert resp.status_code == 201
+    task_id = resp.get_json()["id"]
+
+    payload = _wait_for_task(web_client, task_id)
+    assert payload["state"] == "success", payload.get("error")
+
+    default_types = load_config(config_path=None).filters.default_types
+    expected = sum(1 for r in raw_records if r.type.lower() in {t.lower() for t in default_types})
+    summary = payload["result"]
+    assert summary["total_filtered"] == expected
+    assert summary["dry_run"] is True
+    assert payload["stats"]["filtered"] == expected
+
+    # Metadata was indexed, but dry-run downloaded nothing.
+    docs = web_db.get_documents()
+    assert len(docs) == expected
+    assert all(doc.download_status != "downloaded" for doc in docs)
+
+    # Task logs were captured for the UI.
+    assert payload["logs"]
+
+    # The sync run is now visible in /api/summary.
+    summary_data = web_client.get("/api/summary").get_json()
+    assert summary_data["last_sync"]["downloaded_success"] == 0
+
+
+def test_verify_and_export_tasks(web_client, web_db, web_config_path):
+    # One healthy file + one file missing from disk -> exactly one issue.
+    config = load_config(config_path=web_config_path)
+    config.ensure_directories()
+    content = b"%PDF-1.4\n" + b"y" * 1000
+    rel_path = "01_Scientific_Guidelines/ok.pdf"
+    target = config.storage.library_dir / rel_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(content)
+
+    web_db.batch_upsert_documents(
+        [
+            make_doc(
+                "1",
+                "Healthy doc",
+                local_path=rel_path,
+                local_filename="ok.pdf",
+                download_status="downloaded",
+                file_size=len(content),
+                sha256=hashlib.sha256(content).hexdigest(),
+            ),
+            make_doc(
+                "2",
+                "Missing doc",
+                local_path="01_Scientific_Guidelines/gone.pdf",
+                local_filename="gone.pdf",
+                download_status="downloaded",
+            ),
+        ]
+    )
+
+    resp = web_client.post("/api/tasks", json={"type": "verify", "params": {}})
+    assert resp.status_code == 201
+    payload = _wait_for_task(web_client, resp.get_json()["id"])
+    assert payload["state"] == "success", payload.get("error")
+    assert payload["result"]["issue_count"] == 1
+    assert payload["result"]["issues"][0]["ema_id"] == "2"
+
+    resp = web_client.post("/api/tasks", json={"type": "export", "params": {}})
+    assert resp.status_code == 201
+    payload = _wait_for_task(web_client, resp.get_json()["id"])
+    assert payload["state"] == "success", payload.get("error")
+    assert Path(payload["result"]["excel"]).exists()
