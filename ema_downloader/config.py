@@ -70,6 +70,7 @@ class NetworkConfig:
     workers: int = 3
     proxy: str = ""
     chunk_size: int = 1048576  # 1MB
+    request_delay: float = 2.0  # Delay after successful download to avoid rate limiting
 
     def get_effective_proxy(self) -> Optional[str]:
         """Return proxy from config, environment variables, or auto-detect local proxy."""
@@ -151,14 +152,27 @@ def find_default_config_path() -> Optional[Path]:
     return None
 
 
+def _load_toml(path: Path) -> dict[str, Any]:
+    with open(path, "rb") as f:
+        return tomllib.load(f)
+
+
 def load_config(config_path: Optional[Path | str] = None, **overrides: Any) -> AppConfig:
     """Load configuration from file and merge with runtime overrides."""
     path = Path(config_path) if config_path else find_default_config_path()
     data: dict[str, Any] = {}
 
     if path and path.exists():
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
+        data = _load_toml(path)
+        # settings.local.toml holds private values (e.g. proxy credentials) and
+        # is gitignored; merge it section by section on top of the base file.
+        local_path = path.with_name("settings.local.toml")
+        if local_path.exists():
+            for section, values in _load_toml(local_path).items():
+                if isinstance(values, dict) and isinstance(data.get(section), dict):
+                    data[section] = {**data[section], **values}
+                else:
+                    data[section] = values
 
     # Parse sections
     sources_data = data.get("sources", {})
@@ -188,6 +202,7 @@ def load_config(config_path: Optional[Path | str] = None, **overrides: Any) -> A
         workers=int(overrides.get("workers") or net_data.get("workers", NetworkConfig.workers)),
         proxy=str(overrides.get("proxy") or net_data.get("proxy", NetworkConfig.proxy)),
         chunk_size=int(net_data.get("chunk_size", NetworkConfig.chunk_size)),
+        request_delay=float(net_data.get("request_delay", NetworkConfig.request_delay)),
     )
 
     default_filter = FilterConfig()

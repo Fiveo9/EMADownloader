@@ -14,7 +14,7 @@ from typing import List, Optional, Tuple
 from tqdm import tqdm
 
 from ema_downloader import __version__
-from ema_downloader.config import AppConfig, load_config
+from ema_downloader.config import load_config
 from ema_downloader.database import Database
 from ema_downloader.downloader import Downloader
 from ema_downloader.ema_source import EMASource

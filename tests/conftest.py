@@ -1,6 +1,5 @@
 """Pytest fixtures for EMA Downloader test suite."""
 
-import json
 from pathlib import Path
 import pytest
 

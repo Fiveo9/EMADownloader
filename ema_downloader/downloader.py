@@ -225,6 +225,9 @@ class Downloader:
                         downloaded_at=datetime.now(timezone.utc).isoformat(),
                     )
 
+                    # Add configurable delay to avoid rate limiting
+                    time.sleep(self.config.network.request_delay)
+
                     return DownloadResult(
                         doc=doc,
                         success=True,
@@ -239,7 +242,12 @@ class Downloader:
                     temp_file.unlink(missing_ok=True)
                     last_error = str(e)
                     if attempt < retries:
-                        sleep_time = delay * (2 ** (attempt - 1))
+                        # For rate limiting (429), use longer exponential backoff
+                        if "429" in str(e) or "Rate limited" in str(e):
+                            sleep_time = delay * (3 ** attempt)  # 3, 9, 27 seconds
+                            logger.warning(f"Rate limited, waiting {sleep_time:.1f}s before retry {attempt + 1}/{retries}")
+                        else:
+                            sleep_time = delay * (2 ** (attempt - 1))
                         time.sleep(sleep_time)
                 except Exception as e:
                     temp_file.unlink(missing_ok=True)

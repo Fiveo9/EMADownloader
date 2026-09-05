@@ -1,11 +1,17 @@
 # EMA Downloader Configuration
+#
+# This file is committed and acts as the shared default template.
+# Private values (e.g. proxy pool credentials) belong in
+# config/settings.local.toml — it is gitignored and overrides this file
+# section by section at startup.
 
 [sources]
+# EMA official remote JSON endpoints (updated twice daily)
 documents_url = "https://www.ema.europa.eu/en/documents/report/documents-output-json-report_en.json"
 general_url = "https://www.ema.europa.eu/en/documents/report/general-json-report_en.json"
 
 [storage]
-# Root library folder for downloads and indexes
+# Root library folder for downloaded files, database, and generated indexes
 library_dir = "EMA_Regulatory_Library"
 index_dir = "00_Index"
 raw_json_dir = "90_Raw_JSON"
@@ -17,14 +23,26 @@ csv_name = "EMA_Document_Index.csv"
 [network]
 # Identification in User-Agent header
 user_agent = "EMADownloader/0.1.0 (+https://github.com/Fiveo9/EMADownloader)"
-timeout = 30.0
+timeout = 45.0
 max_retries = 3
-retry_delay = 1.0
-workers = 3
-# Proxy setting: leave empty to use environment variables (HTTP_PROXY / HTTPS_PROXY / ALL_PROXY)
+retry_delay = 2.0
+workers = 5                       # Concurrency workers for document downloads
+
+# Proxy setting:
+# 1. Leave empty ("") to auto-detect from environment (HTTP_PROXY / HTTPS_PROXY / ALL_PROXY)
+#    or local Clash/V2Ray ports (127.0.0.1:7890).
+# 2. Or specify a custom proxy: "http://127.0.0.1:7890" or "socks5://127.0.0.1:1080"
+#    (SOCKS5 requires the extra: pip install -e ".[socks]").
+# 3. A proxy pool with credentials belongs in config/settings.local.toml (gitignored):
+#    proxy = "http://username:password@proxy-host:port"
 proxy = ""
+
 # Chunk size for streaming file download (1 MB)
 chunk_size = 1048576
+
+# Delay in seconds after each successful download to avoid HTTP 429 rate limiting.
+# Recommended: 0.5s with a proxy pool; 1.5s - 2.0s for direct connections.
+request_delay = 0.5
 
 [filters]
 # Default document types to synchronize

@@ -32,3 +32,14 @@ def test_ensure_directories(sample_config: AppConfig):
     assert sample_config.storage.full_index_dir.exists()
     assert sample_config.storage.full_raw_json_dir.exists()
     assert sample_config.storage.full_failed_downloads_dir.exists()
+
+
+def test_local_toml_overrides_base(tmp_path: Path):
+    base = tmp_path / "settings.toml"
+    base.write_text('[network]\nworkers = 2\nproxy = ""\n', encoding="utf-8")
+    local = tmp_path / "settings.local.toml"
+    local.write_text('[network]\nproxy = "http://127.0.0.1:7890"\n', encoding="utf-8")
+
+    cfg = load_config(config_path=base)
+    assert cfg.network.workers == 2
+    assert cfg.network.proxy == "http://127.0.0.1:7890"

@@ -3,14 +3,12 @@
 import hashlib
 from pathlib import Path
 import httpx
-import pytest
 
 from ema_downloader.config import AppConfig
 from ema_downloader.database import Database
 from ema_downloader.downloader import (
     Downloader,
     validate_downloaded_file,
-    compute_file_sha256,
 )
 from ema_downloader.models import DownloadStatus, EMADocument
 
