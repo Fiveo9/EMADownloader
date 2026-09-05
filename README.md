@@ -100,7 +100,9 @@ EMA_Regulatory_Library/
 │   ├── 07_Herbal_Medicines/                    # 第二级：传统草药制品
 │   └── 99_Uncategorized/                       # 未命中的科学指南归档
 ├── 02_Regulatory_Procedural_Guidelines/        # 第一级：监管与审评程序性指导原则
+├── 03_Reflection_Position_Concept_Papers/      # 预留：旧类型标识目录（reflection-paper 等已从数据源移除，新库不会生成）
 ├── 04_QA_Public_Statements/                    # 第一级：问答（medicine-qa）与公开声明
+├── 05_EU_Legislation_Optional/                 # 预留：旧类型标识目录（legislation 等已从数据源移除，新库不会生成）
 ├── 06_Other_Documents/                         # 第一级：其余文档类型的默认归档（评估报告、PSUSA、会议文件等）
 ├── 90_Raw_JSON/                                # 官方原始数据每日快照备份
 │   ├── documents-output-json-report_en_YYYYMMDD.json
@@ -109,12 +111,11 @@ EMA_Regulatory_Library/
 └── 99_Failed_Downloads/                        # 异常与失败追踪
     ├── download_failures.csv                   # 失败文档及官方 HTTP 错误诊断
     └── download_manifest.csv                   # 本地全量文件的 SHA-256 指纹清单
-
-> 注：`03_Reflection_Position_Concept_Papers` 与 `05_EU_Legislation_Optional` 为旧版
-> 类型标识的预留目录（reflection-paper、q-and-a、legislation 等标识已从 EMA 数据源
-> 移除，反思/概念文件现归入科学指南，问答文档现标识为 medicine-qa），仅旧资料库
-> 重新整理时可能出现，新资料库不会生成。
 ```
+
+> 说明：EMA 数据源已不再产生反思/立场/概念文件与法规类类型标识（反思/概念文件
+> 现归入科学指南，问答文档现标识为 medicine-qa），因此 **03、05 仅为编号占位**——
+> 保留原目录名是为了让已有资料库的文件路径保持稳定，新资料库不会生成这两个目录。
 
 ---
 
