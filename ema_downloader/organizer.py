@@ -12,15 +12,19 @@ from ema_downloader.models import ClassificationRule, EMADocument
 
 logger = logging.getLogger(__name__)
 
-# Level 1 mapping from document type to top-level folder
+# Level 1 mapping from document type to top-level folder.
+# medicine-qa is the current EMA slug for Q&A documents (the old "q-and-a"
+# identifier no longer exists in the feed); legacy slugs are kept so older
+# libraries re-organize into the same folders they were downloaded into.
 DOCUMENT_TYPE_FOLDERS = {
     "scientific-guideline": "01_Scientific_Guidelines",
     "regulatory-procedural-guideline": "02_Regulatory_Procedural_Guidelines",
+    "medicine-qa": "04_QA_Public_Statements",
+    "q-and-a": "04_QA_Public_Statements",
+    "public-statement": "04_QA_Public_Statements",
     "reflection-paper": "03_Reflection_Position_Concept_Papers",
     "position-paper": "03_Reflection_Position_Concept_Papers",
     "concept-paper": "03_Reflection_Position_Concept_Papers",
-    "q-and-a": "04_QA_Public_Statements",
-    "public-statement": "04_QA_Public_Statements",
     "legislation": "05_EU_Legislation_Optional",
     "eu-legislation": "05_EU_Legislation_Optional",
 }

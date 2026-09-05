@@ -63,6 +63,21 @@ def test_classify_regulatory_procedural():
     assert sub == ""
 
 
+def test_classify_medicine_qa():
+    """medicine-qa is the current EMA slug for Q&A documents and must land in 04."""
+    doc = EMADocument(
+        ema_id="7",
+        name="Questions and answers on the safety of a medicine",
+        document_type="medicine-qa",
+        reference_number="EMA/1234",
+        official_url="https://www.ema.europa.eu/en/documents/medicine-qa/qa_en.pdf",
+        local_filename="20260101__qa.pdf",
+    )
+    top, sub, cat = classify_document(doc)
+    assert top == "04_QA_Public_Statements"
+    assert sub == ""
+
+
 def test_compute_relative_path(sample_rules):
     doc = EMADocument(
         ema_id="5",

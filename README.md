@@ -90,7 +90,7 @@ EMA_Regulatory_Library/
 │   ├── EMA_Document_Index.xlsx                 # 多工作表格式化 Excel 索引（内置本地打开超链接）
 │   ├── EMA_Document_Index.csv                  # 扁平化完整元数据 CSV 清单
 │   └── sync_report_YYYYMMDD_HHMMSS.json        # 历次同步统计与审计报告
-├── 01_Scientific_Guidelines/                   # 第一级：科学指导原则
+├── 01_Scientific_Guidelines/                   # 第一级：科学指导原则（反思/概念文件现亦归入此类型）
 │   ├── 01_Quality/                             # 第二级：质量与 CMC（稳定性、杂质、分析方法等）
 │   ├── 02_Nonclinical/                         # 第二级：非临床药理毒理（安全药理、遗传毒性等）
 │   ├── 03_Clinical_Efficacy_Safety/            # 第二级：临床有效性与安全性（临床试验、终点等）
@@ -100,14 +100,20 @@ EMA_Regulatory_Library/
 │   ├── 07_Herbal_Medicines/                    # 第二级：传统草药制品
 │   └── 99_Uncategorized/                       # 未命中的科学指南归档
 ├── 02_Regulatory_Procedural_Guidelines/        # 第一级：监管与审评程序性指导原则
-├── 03_Reflection_Position_Concept_Papers/      # 第一级：反思报告、立场文件与概念文件
-├── 04_QA_Public_Statements/                    # 第一级：问答（Q&A）与公开声明
-├── 05_EU_Legislation_Optional/                 # 第一级：欧盟法规相关文件
+├── 04_QA_Public_Statements/                    # 第一级：问答（medicine-qa）与公开声明
+├── 06_Other_Documents/                         # 第一级：其余文档类型的默认归档（评估报告、PSUSA、会议文件等）
 ├── 90_Raw_JSON/                                # 官方原始数据每日快照备份
-│   └── documents-output-json-report_en_YYYYMMDD.json
+│   ├── documents-output-json-report_en_YYYYMMDD.json
+│   ├── general-json-report_en_YYYYMMDD.json    # 指南与综合信息数据源（CLI --include-general 时抓取）
+│   └── type_distribution.json                  # 最近一次同步的各类型文档数统计（供界面展示）
 └── 99_Failed_Downloads/                        # 异常与失败追踪
     ├── download_failures.csv                   # 失败文档及官方 HTTP 错误诊断
     └── download_manifest.csv                   # 本地全量文件的 SHA-256 指纹清单
+
+> 注：`03_Reflection_Position_Concept_Papers` 与 `05_EU_Legislation_Optional` 为旧版
+> 类型标识的预留目录（reflection-paper、q-and-a、legislation 等标识已从 EMA 数据源
+> 移除，反思/概念文件现归入科学指南，问答文档现标识为 medicine-qa），仅旧资料库
+> 重新整理时可能出现，新资料库不会生成。
 ```
 
 ---
