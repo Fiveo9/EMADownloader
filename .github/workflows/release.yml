@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "要构建并发布的已有标签（如 v0.1.1），将检出该标签代码后构建"
+        description: "要构建并发布的已有标签（如 v0.1.3），将检出该标签代码后构建"
         required: true
-        default: "v0.1.1"
+        default: "v0.1.3"
 
 # Tag pushes use github.ref_name; manual runs use the tag input.
 env:

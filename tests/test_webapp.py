@@ -188,6 +188,10 @@ def test_index_page(web_client):
     resp = web_client.get("/")
     assert resp.status_code == 200
     assert "EMA 监管文件库".encode("utf-8") in resp.data
+    assert "type-picker-presets".encode("utf-8") in resp.data
+    assert "core-guidelines".encode("utf-8") in resp.data
+    assert "sync-types-summary".encode("utf-8") in resp.data
+    assert "set-types-summary".encode("utf-8") in resp.data
 
 
 def test_api_summary(web_client, web_db):
@@ -516,3 +520,22 @@ def test_api_settings_put_flow(web_client, web_config_path):
     assert resp.status_code == 400
     assert any(d["field"] == "workers" for d in resp.get_json()["details"])
     assert local.read_text(encoding="utf-8") == before
+
+
+def test_settings_preset_types_persistence(web_client, web_config_path):
+    preset_types = [
+        "scientific-guideline",
+        "regulatory-procedural-guideline",
+        "medicine-qa",
+    ]
+    resp = web_client.put(
+        "/api/settings",
+        json={
+            "filters": {"default_types": preset_types},
+        },
+    )
+    assert resp.status_code == 200
+
+    data = web_client.get("/api/settings").get_json()
+    assert data["values"]["filters"]["default_types"] == preset_types
+    assert "default_types" in data["overridden"]["filters"]

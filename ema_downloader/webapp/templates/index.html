@@ -139,7 +139,18 @@
       <h2>默认筛选 <small class="section-note">同步对话框留空时使用的默认值</small></h2>
       <div class="form-row">
         <label id="set-types-label">默认文档类型</label>
-        <div id="set-types" class="checkbox-group"></div>
+        <div class="type-picker-toolbar">
+          <div class="type-picker-presets" data-target="set-types">
+            <span class="preset-label">快捷预设：</span>
+            <button type="button" class="preset-btn" data-preset="core-guidelines">🎯 核心法规（推荐）</button>
+            <button type="button" class="preset-btn" data-preset="guidelines-assessment">🔍 法规 + 审评调研</button>
+            <button type="button" class="preset-btn" data-preset="safety-pv">🛡️ 药物警戒专线</button>
+            <button type="button" class="preset-btn" data-preset="herbal-medicines">🌿 草药专论</button>
+            <button type="button" class="preset-btn ghost" data-preset="clear">🧹 清空已选</button>
+          </div>
+          <div class="type-picker-summary" id="set-types-summary"></div>
+        </div>
+        <div id="set-types" class="type-picker-container"></div>
       </div>
       <div class="form-row two-field">
         <div class="form-field">
@@ -179,8 +190,19 @@
   <form id="sync-form">
     <h2>同步参数</h2>
     <div class="form-row">
-      <label>文档类型 <small>(留空使用默认)</small></label>
-      <div id="sync-types" class="checkbox-group"></div>
+      <label>文档类型 <small>(留空使用默认设置)</small></label>
+      <div class="type-picker-toolbar">
+        <div class="type-picker-presets" data-target="sync-types">
+          <span class="preset-label">快捷预设：</span>
+          <button type="button" class="preset-btn" data-preset="core-guidelines">🎯 核心法规（推荐）</button>
+          <button type="button" class="preset-btn" data-preset="guidelines-assessment">🔍 法规 + 审评调研</button>
+          <button type="button" class="preset-btn" data-preset="safety-pv">🛡️ 药物警戒专线</button>
+          <button type="button" class="preset-btn" data-preset="herbal-medicines">🌿 草药专论</button>
+          <button type="button" class="preset-btn ghost" data-preset="clear">🧹 清空已选</button>
+        </div>
+        <div class="type-picker-summary" id="sync-types-summary"></div>
+      </div>
+      <div id="sync-types" class="type-picker-container"></div>
     </div>
     <div class="form-row">
       <label for="sync-status">官方状态 <small>(逗号分隔，留空使用默认)</small></label>
